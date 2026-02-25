@@ -1,6 +1,8 @@
-# AI KYC Risk Reviewer
+# VeriFlow
 
-AI-powered KYC document analysis and risk assessment system built for Wealthsimple's compliance workflow. When Wealthsimple's auto-verification (Persona/Onfido) fails for ~10-30% of applicants, this tool lets AI handle document extraction, cross-referencing, biometric matching, and risk scoring — so compliance teams only manually review truly complex cases.
+AI-powered identity verification and KYC risk triage system built for Wealthsimple’s compliance workflow. When automated verification (Persona/Onfido-style) fails for ~10–30% of applicants, VeriFlow lets AI handle document extraction, cross-referencing, biometric matching, regulatory screening, and risk scoring — so compliance teams only manually review cases that truly need judgment.
+
+In addition, VeriFlow supports **AI auto-approval for clear-cut low-risk cases** under configurable thresholds. **Rejections always require a human.**
 
 See [FEATURES.md](FEATURES.md) for a complete feature breakdown.
 
@@ -85,7 +87,7 @@ The root `Dockerfile` builds the frontend and serves it from FastAPI, so you get
 | Backend | Python, FastAPI, SQLAlchemy | Async-native, first-class AI ecosystem, auto-generated API docs |
 | Worker | Standalone polling process | Survives restarts, decoupled from API, scales horizontally |
 | AI | OpenAI GPT-4o (vision + structured), Whisper | Document analysis, facial matching, voice biometrics |
-| Database | SQLite (WAL mode) | Swappable to Postgres via one connection string change |
+| Database | PostgreSQL (production) / SQLite (local) | Same schema + auto-migration; choose via connection string |
 
 ## Pages
 
@@ -96,10 +98,10 @@ The root `Dockerfile` builds the frontend and serves it from FastAPI, so you get
 | `/application/:id` | Admin | Full detail — AI analysis, biometrics, evidence, regulatory flags |
 | `/application/:id` | Applicant | Progress tracker with status timeline |
 | `/my-applications` | Applicant | Personal application list filtered by profile email |
-| `/voice-verify` | Applicant | Voice re-verification against enrolled sample |
 | `/audit-log` | Admin | Chronological record of all system and human actions |
-| `/settings` | Admin | Configurable screening rules, thresholds, country lists |
+| `/settings` | Admin | Configurable screening rules, thresholds, country lists, and AI auto-approval criteria |
 | `/webhooks` | Admin | Mock Wealthsimple webhook integration + activity log |
+| `/api-keys` | Admin | API key management UI for the public `/api/v1/` endpoints |
 
 ## API
 
@@ -118,6 +120,10 @@ The root `Dockerfile` builds the frontend and serves it from FastAPI, so you get
 | `GET` | `/api/webhooks/logs` | Webhook activity log |
 | `GET/PUT` | `/api/webhooks/config` | Webhook connection settings |
 | `GET/PUT` | `/api/config/screening` | Screening rules configuration |
+| `GET/POST/DELETE` | `/api/api-keys` | API key management (admin-only) |
+| `POST` | `/api/v1/verify` | Public REST API — submit a verification (API key auth) |
+| `GET` | `/api/v1/status/:id` | Public REST API — poll verification status |
+| `GET` | `/api/v1/verifications` | Public REST API — list verifications |
 | `POST` | `/api/feedback/:id` | Log AI feedback for retraining |
 | `POST` | `/api/demo/adversarial/:scenario` | Run adversarial test scenario |
 | `GET` | `/api/audit-log` | Audit log (filterable) |

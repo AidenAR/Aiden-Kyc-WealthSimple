@@ -21,6 +21,7 @@ from app.models.application import Application, Job, ApplicationStatus
 from app.services.analyzer import analyze_document
 from app.services.facial_match import compare_faces
 from app.services.regulatory import screen_application
+from app.services.screening_config import load_config
 from app.services.storage import get_document_path
 from app.services import audit
 
@@ -65,6 +66,55 @@ def claim_job(db) -> Job | None:
         db.commit()
 
     return job
+
+
+def _try_auto_approve(app: Application, reg: dict, ai_result: dict) -> bool:
+    """Check if this application qualifies for automatic approval.
+
+    Auto-approval is only for clear-cut low-risk cases. Rejections ALWAYS
+    require human review — denying someone financial services demands
+    human accountability.
+    """
+    cfg = load_config().get("auto_approve", {})
+    if not cfg.get("enabled", False):
+        return False
+
+    score = reg.get("adjusted_risk_score", 1.0)
+    level = reg.get("adjusted_risk_level", "high")
+    confidence = app.confidence_score or 0.0
+
+    if level != "low" or score > cfg.get("max_risk_score", 0.3):
+        return False
+
+    if confidence < cfg.get("min_confidence", 0.85):
+        return False
+
+    if cfg.get("block_on_critical_flags", True):
+        for flag in (ai_result.get("flags") or []):
+            if isinstance(flag, dict) and flag.get("severity") == "critical":
+                return False
+        for rf in (reg.get("regulatory_flags") or []):
+            if isinstance(rf, dict) and rf.get("severity") == "critical":
+                return False
+
+    if cfg.get("require_facial_match", True):
+        fm = app.facial_match or {}
+        if fm.get("match_result") != "match":
+            return False
+        if (fm.get("similarity_score") or 0) < cfg.get("min_facial_similarity", 0.7):
+            return False
+
+    app.status = ApplicationStatus.APPROVED.value
+    app.review_decision = "approved"
+    app.review_reason = "Auto-approved by AI"
+    app.reviewed_by = "ai_auto_approve"
+    app.reviewed_at = datetime.now(timezone.utc)
+    app.review_notes = (
+        f"Automatically approved — risk score {score:.2f} (low), "
+        f"confidence {confidence:.0%}, facial match confirmed. "
+        f"No critical flags detected."
+    )
+    return True
 
 
 def process_job(db, job: Job):
@@ -162,7 +212,10 @@ def process_job(db, job: Job):
         app.risk_level = reg["adjusted_risk_level"]
         app.regulatory_flags = reg["regulatory_flags"]
         app.regulatory_priority = reg["priority"]
-        app.status = ApplicationStatus.PENDING_REVIEW.value
+
+        auto_approved = _try_auto_approve(app, reg, result)
+        if not auto_approved:
+            app.status = ApplicationStatus.PENDING_REVIEW.value
 
         job.status = "completed"
         job.completed_at = datetime.now(timezone.utc)
@@ -183,8 +236,25 @@ def process_job(db, job: Job):
                 "flag_count": len(result.get("flags") or []),
                 "regulatory_flags": reg_count,
                 "regulatory_priority": reg.get("priority", "standard"),
+                "auto_approved": auto_approved,
             },
         )
+
+        if auto_approved:
+            audit.log_event(
+                db,
+                action="auto_approved",
+                actor="ai_system",
+                application_id=app.id,
+                details={
+                    "risk_score": reg["adjusted_risk_score"],
+                    "risk_level": reg["adjusted_risk_level"],
+                    "confidence_score": app.confidence_score,
+                    "facial_similarity": (app.facial_match or {}).get("similarity_score"),
+                    "reason": "All auto-approval criteria met — low risk, high confidence, no critical flags",
+                },
+            )
+            db.commit()
 
         adj_note = ""
         for a in reg.get("adjustments_applied") or []:
@@ -193,7 +263,8 @@ def process_job(db, job: Job):
         if adj_note:
             adj_note = f" | regulatory adjustments: {adj_note[2:]}"
 
-        print(f"[Worker] Completed: {app.id} | risk={reg['adjusted_risk_level']} score={reg['adjusted_risk_score']:.2f} confidence={app.confidence_score:.2f} priority={reg.get('priority', 'standard')}{adj_note}")
+        status_label = "AUTO-APPROVED" if auto_approved else reg.get("priority", "standard")
+        print(f"[Worker] Completed: {app.id} | risk={reg['adjusted_risk_level']} score={reg['adjusted_risk_score']:.2f} confidence={app.confidence_score:.2f} priority={status_label}{adj_note}")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"

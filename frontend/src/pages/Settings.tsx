@@ -12,6 +12,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Zap,
 } from 'lucide-react';
 import { getScreeningConfig, updateScreeningConfig } from '@/lib/api';
 import { useToast } from '@/components/Toast';
@@ -102,6 +103,7 @@ export function Settings() {
       </div>
 
       <div className="space-y-6">
+        <AutoApproveSection draft={draft} update={update} />
         <CheckToggles draft={draft} update={update} />
         <ThresholdsSection draft={draft} update={update} />
         <BoostsSection draft={draft} update={update} />
@@ -134,6 +136,116 @@ export function Settings() {
           onChange={(v) => update('sanctions_programs', v)}
         />
       </div>
+    </div>
+  );
+}
+
+
+function AutoApproveSection({
+  draft,
+  update,
+}: {
+  draft: ScreeningConfig;
+  update: <K extends keyof ScreeningConfig>(key: K, value: ScreeningConfig[K]) => void;
+}) {
+  const aa = draft.auto_approve ?? {
+    enabled: false,
+    max_risk_score: 0.3,
+    min_confidence: 0.85,
+    require_facial_match: true,
+    min_facial_similarity: 0.7,
+    block_on_critical_flags: true,
+  };
+
+  function set<K extends keyof typeof aa>(key: K, val: (typeof aa)[K]) {
+    update('auto_approve', { ...aa, [key]: val });
+  }
+
+  return (
+    <div className={cn(
+      'rounded-xl border p-5 transition-colors',
+      aa.enabled
+        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-700'
+        : 'bg-card border-border',
+    )}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Zap className={cn('h-4 w-4', aa.enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')} />
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">AI Auto-Approval</h2>
+            <p className="text-xs text-muted-foreground">
+              Automatically approve low-risk applications. Rejections always require human review.
+            </p>
+          </div>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={aa.enabled}
+            onChange={() => set('enabled', !aa.enabled)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-emerald-500 transition-colors after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+        </label>
+      </div>
+
+      {aa.enabled && (
+        <div className="space-y-4 pt-2 border-t border-emerald-200/50 dark:border-emerald-800/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <SliderField
+              label="Max Risk Score"
+              value={aa.max_risk_score}
+              min={0.05} max={0.5} step={0.05}
+              format={(v) => v.toFixed(2)}
+              onChange={(v) => set('max_risk_score', v)}
+            />
+            <SliderField
+              label="Min AI Confidence"
+              value={aa.min_confidence}
+              min={0.5} max={1} step={0.05}
+              format={(v) => `${(v * 100).toFixed(0)}%`}
+              onChange={(v) => set('min_confidence', v)}
+            />
+            <SliderField
+              label="Min Facial Similarity"
+              value={aa.min_facial_similarity}
+              min={0.5} max={1} step={0.05}
+              format={(v) => `${(v * 100).toFixed(0)}%`}
+              onChange={(v) => set('min_facial_similarity', v)}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm',
+              aa.require_facial_match
+                ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30'
+                : 'border-border bg-muted/30',
+            )}>
+              <input
+                type="checkbox"
+                checked={aa.require_facial_match}
+                onChange={() => set('require_facial_match', !aa.require_facial_match)}
+                className="h-3.5 w-3.5 rounded border-border text-emerald-600 focus:ring-emerald-500"
+              />
+              Require facial match
+            </label>
+            <label className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm',
+              aa.block_on_critical_flags
+                ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30'
+                : 'border-border bg-muted/30',
+            )}>
+              <input
+                type="checkbox"
+                checked={aa.block_on_critical_flags}
+                onChange={() => set('block_on_critical_flags', !aa.block_on_critical_flags)}
+                className="h-3.5 w-3.5 rounded border-border text-emerald-600 focus:ring-emerald-500"
+              />
+              Block if critical flags
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   Loader2,
   User,
   History,
+  Zap,
 } from 'lucide-react';
 import { useApplication, useReviewApplication } from '@/hooks/useApplications';
 import { useAuditLog } from '@/hooks/useAuditLog';
@@ -282,13 +283,26 @@ export function ApplicationDetail() {
           )}
 
           {app.reviewed_at && (
-            <div className="bg-card rounded-xl border border-border p-5">
-              <h2 className="text-sm font-semibold text-foreground mb-3">Review Decision</h2>
+            <div className={cn(
+              "rounded-xl border p-5",
+              app.reviewed_by === 'ai_auto_approve'
+                ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                : "bg-card border-border"
+            )}>
+              <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                Review Decision
+                {app.reviewed_by === 'ai_auto_approve' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700">
+                    <Zap className="h-2.5 w-2.5" />
+                    AI Auto-Approved
+                  </span>
+                )}
+              </h2>
               <DataTable
                 rows={[
                   ['Decision', app.review_decision ?? ''],
                   ['Reason', app.review_reason ?? ''],
-                  ['Reviewed By', app.reviewed_by ?? ''],
+                  ['Reviewed By', app.reviewed_by === 'ai_auto_approve' ? 'AI System (Auto-Approve)' : (app.reviewed_by ?? '')],
                   ['Reviewed At', app.reviewed_at ? formatDate(app.reviewed_at) : ''],
                   ...(app.review_notes ? [['Notes', app.review_notes] as [string, string]] : []),
                 ]}

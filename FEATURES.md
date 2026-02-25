@@ -1,10 +1,10 @@
-# AI KYC Risk Reviewer — Feature Overview
+# VeriFlow — Feature Overview
 
 ## The Problem
 
 Wealthsimple already auto-verifies most applicants via soft credit check + Persona biometrics. But for the ~10–30% that fail — mismatches, poor images, international IDs, fraud flags — humans still do manual reviews. That process is slow, fatiguing, and a bottleneck at scale.
 
-This system rebuilds that manual fallback workflow as an AI-native pipeline: AI triages, explains, and prioritizes so compliance focuses only on true judgment calls.
+This system rebuilds that manual fallback workflow as an AI-native pipeline: AI triages, explains, and prioritizes so compliance focuses only on true judgment calls — and can **auto-approve clear-cut low-risk applications** under configurable thresholds.
 
 ---
 
@@ -15,7 +15,8 @@ This system rebuilds that manual fallback workflow as an AI-native pipeline: AI 
 - Document type selection (driver's license, passport, national ID)
 - **Multi-document upload** — up to 5 files per application (front, back, supporting documents)
 - Supports JPG, PNG, WebP, and PDF
-- Optional selfie upload for additional verification
+- **Selfie capture/upload (required)** for facial comparison verification
+- **Submission progress stepper** — visual progress across key sections of the form
 - Images automatically resized (max 2048px) with Pillow before AI analysis
 - File size limit of 5 MB per document enforced on both frontend and backend
 - Rate limiting (10 submissions per minute per IP) with `429 Too Many Requests`
@@ -42,6 +43,7 @@ This system rebuilds that manual fallback workflow as an AI-native pipeline: AI 
 - **Document quality assessment** — overall quality, blur, crop, resolution checks
 - **Application timeline** — visual lifecycle showing every event (submitted → processing → AI complete → reviewed) with contextual details pulled from the audit log
 - **Review panel** — approve, reject, or request more info with mandatory reason selection and optional notes
+- **AI auto-approval (approve-only)** — clear-cut low-risk cases can be automatically approved when thresholds are met (configurable). **Rejections always require a human**.
 - **Override detection** — tracks when a reviewer approves a high-risk case or rejects a low-risk case
 - **Regulatory What-If Simulator** — toggle PEP, high-risk jurisdiction, sanctions, adverse media to see real-time impact on risk score and FINTRAC obligations
 - **Human Feedback Loop** — "Disagree with AI?" panel to log feedback (wrong risk, false positive flag, extraction error) to a retraining queue
@@ -134,7 +136,7 @@ Multi-document support sends all images in a single API call so the AI can cross
 
 | Risk Score | Level | Behavior |
 |---|---|---|
-| < 0.3 | Low | Standard queue — AI suggests approval |
+| < 0.3 | Low | Eligible for auto-approval (if confidence + facial-match thresholds are met) |
 | 0.3 – 0.7 | Medium | Standard review queue |
 | > 0.7 | High | Priority queue — immediate attention |
 
@@ -165,26 +167,20 @@ The recording is:
 
 Results include passphrase similarity, spoken name comparison, confidence level, and flagged anomalies. Admins can **play back** the enrolled recording directly in the review panel.
 
-### Voice Re-verification (Returning Users)
+### Voice Re-verification (Optional, API-only)
 
-The first voice recording for an email becomes the **enrolled baseline**. On subsequent visits, the applicant can navigate to **Voice ID** and:
-
-1. Record a new sample
-2. The system transcribes both recordings with Whisper
-3. GPT-4o compares the two transcriptions for speaker consistency
-4. Returns a match/mismatch/inconclusive result with confidence and anomalies
-
-This enables lightweight ongoing identity verification without re-submitting full documents. Re-verification events are logged in the audit trail.
+The first voice recording for an email becomes the **enrolled baseline**. A re-verification endpoint can compare a new sample against the enrolled baseline (Whisper + GPT-4o). This is intentionally **not exposed as a primary applicant navigation flow** in the UI.
 
 ---
 
 ## Processing Architecture
 
-- **Job queue** — SQLite job table with polling worker (2-second intervals)
+- **Job queue** — PostgreSQL/SQLite job table with polling worker (2-second intervals)
 - **Atomic job claiming** — single UPDATE with `locked_at` timestamp prevents double-processing
 - **Retry with backoff** — 3 retries with exponential backoff (2s, 4s, 8s)
 - **Crash recovery** — stale locks (>60 seconds) automatically released
 - **Structured output validation** — JSON parse failures enter the standard retry path
+- **Auto-approval gate** — after AI + regulatory screening, low-risk/high-confidence applications can be automatically approved under configurable thresholds (approve-only)
 - **Decoupled from API** — the API never blocks on AI processing; worker is independently restartable
 
 ---
@@ -287,6 +283,7 @@ Keys use SHA-256 hashing — the raw key is only shown once at creation. Each ke
 - **Empty file rejection** — documents with 0 bytes are rejected with a clear error
 - **File type validation** — only allowed extensions (JPG, PNG, WebP, PDF, audio formats)
 - **File size limit** — 5 MB per file enforced on both frontend and backend
+- **Corrupt/invalid media hardening** — corrupt PDFs, invalid images, and unsupported formats are handled gracefully with structured “invalid document” outputs (no worker crashes)
 
 ### Document Deduplication
 - SHA-256 hash computed for the first uploaded document
@@ -309,10 +306,11 @@ Keys use SHA-256 hashing — the raw key is only shown once at creation. Each ke
 - JWT tokens with 72-hour expiry
 - Role auto-assignment: `@reviewer.com` emails get admin role
 
-### Role-Based Access Control (Three Layers)
+### Role-Based Access Control (Four Layers)
 1. **Frontend route guards** — admin routes (`/dashboard`, `/audit-log`, `/settings`, `/webhooks`, `/api-keys`) redirect non-admins to `/`
 2. **Backend API enforcement** — list endpoints scope non-admin queries to their own email; admin-only endpoints require `require_admin` dependency
 3. **React Query cache clearing** — login/logout clears cached data to prevent cross-user data leakage
+4. **Protected file serving** — document/selfie/voice download endpoints verify access so applicants can only fetch their own files
 
 ---
 

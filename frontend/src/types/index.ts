@@ -251,8 +251,18 @@ export interface CheckConfig {
   label: string;
 }
 
+export interface AutoApproveConfig {
+  enabled: boolean;
+  max_risk_score: number;
+  min_confidence: number;
+  require_facial_match: boolean;
+  min_facial_similarity: number;
+  block_on_critical_flags: boolean;
+}
+
 export interface ScreeningConfig {
   checks: Record<string, CheckConfig>;
+  auto_approve: AutoApproveConfig;
   high_risk_countries: string[];
   elevated_countries: string[];
   sanctioned_countries: string[];

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Clock, Shield } from 'lucide-react';
+import { AlertTriangle, Clock, Shield, Zap } from 'lucide-react';
 import { RiskBadge } from './RiskBadge';
 import { StatusBadge } from './StatusBadge';
 import { timeAgo, documentTypeLabel } from '@/lib/utils';
@@ -8,6 +8,7 @@ import type { Application } from '@/types';
 export function ApplicationCard({ app }: { app: Application }) {
   const flagCount = app.flags?.length ?? 0;
   const criticalFlags = app.flags?.filter((f) => f.severity === 'critical').length ?? 0;
+  const isAutoApproved = app.reviewed_by === 'ai_auto_approve';
 
   return (
     <Link
@@ -21,7 +22,15 @@ export function ApplicationCard({ app }: { app: Application }) {
           </h3>
           <p className="text-sm text-muted-foreground">{documentTypeLabel(app.document_type)}</p>
         </div>
-        <StatusBadge status={app.status} />
+        <div className="flex items-center gap-1.5">
+          {isAutoApproved && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+              <Zap className="h-2.5 w-2.5" />
+              AI
+            </span>
+          )}
+          <StatusBadge status={app.status} />
+        </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">

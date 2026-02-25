@@ -49,6 +49,14 @@ DEFAULT_CONFIG: dict = {
         "Canada SEMA (Special Economic Measures Act)",
         "FINTRAC Designated Persons",
     ],
+    "auto_approve": {
+        "enabled": True,
+        "max_risk_score": 0.3,
+        "min_confidence": 0.85,
+        "require_facial_match": True,
+        "min_facial_similarity": 0.7,
+        "block_on_critical_flags": True,
+    },
     "thresholds": {
         "ai_confidence_min": 0.6,
         "risk_high": 0.7,
