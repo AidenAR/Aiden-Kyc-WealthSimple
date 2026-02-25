@@ -45,7 +45,7 @@ export function VoiceReverify() {
 
   const mutation = useMutation({
     mutationFn: (blob: Blob) => voiceReverify(email, blob),
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data: VoiceReverifyResult) => setResult(data),
   });
 
   const handleVerify = useCallback(() => {

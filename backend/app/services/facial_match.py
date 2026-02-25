@@ -59,10 +59,19 @@ Return ONLY the JSON object."""
 
 
 def _prepare_image(path: Path) -> dict:
-    image_bytes = path.read_bytes()
     ext = path.suffix.lower()
-    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-    mime_type = mime_map.get(ext, "image/jpeg")
+    if ext == ".pdf":
+        import fitz  # PyMuPDF
+        doc = fitz.open(str(path))
+        page = doc[0]
+        pix = page.get_pixmap(dpi=200)
+        image_bytes = pix.tobytes("jpeg")
+        doc.close()
+        mime_type = "image/jpeg"
+    else:
+        image_bytes = path.read_bytes()
+        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+        mime_type = mime_map.get(ext, "image/jpeg")
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     return {
         "type": "image_url",

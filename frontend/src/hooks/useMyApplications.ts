@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getApplication } from '@/lib/api';
 import type { Application } from '@/types';

@@ -87,7 +87,7 @@ function TimelineDetails({ details, action }: { details: Record<string, unknown>
   if (action === 'ai_analysis_completed') {
     return (
       <div className="flex gap-2 mt-1 flex-wrap">
-        {details.risk_level && (
+        {details.risk_level != null && (
           <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
             Risk: {String(details.risk_level)}
           </span>
@@ -109,7 +109,7 @@ function TimelineDetails({ details, action }: { details: Record<string, unknown>
   if (action === 'application_reviewed') {
     return (
       <div className="flex gap-2 mt-1 flex-wrap">
-        {details.decision && (
+        {details.decision != null && (
           <span className={cn(
             'text-xs px-1.5 py-0.5 rounded font-medium capitalize',
             details.decision === 'approved' ? 'bg-emerald-100 text-emerald-800' :
@@ -119,10 +119,10 @@ function TimelineDetails({ details, action }: { details: Record<string, unknown>
             {String(details.decision)}
           </span>
         )}
-        {details.reason && (
+        {details.reason != null && (
           <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{String(details.reason)}</span>
         )}
-        {details.is_override && (
+        {details.is_override != null && (
           <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
             <AlertTriangle className="h-3 w-3" /> Override
           </span>

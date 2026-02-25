@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Mic, CheckCircle, XCircle, AlertTriangle, Info, Volume2, Play, Pause } from 'lucide-react';
+import { Mic, XCircle, AlertTriangle, Info, Volume2, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VoiceVerification {

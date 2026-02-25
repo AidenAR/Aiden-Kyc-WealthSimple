@@ -1,4 +1,4 @@
-import { UserCheck, CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { UserCheck, XCircle, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FacialMatch } from '@/types';
 

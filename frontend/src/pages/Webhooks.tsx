@@ -12,7 +12,6 @@ import {
   RotateCcw,
   Zap,
   Eye,
-  X,
   ChevronDown,
   ChevronUp,
   Shield,
@@ -71,11 +70,13 @@ export function Webhooks() {
 }
 
 
+type ToastFn = ReturnType<typeof useToast>['addToast'];
+
 function WebhookConfigPanel({
   addToast,
   queryClient,
 }: {
-  addToast: (msg: string, type: string) => void;
+  addToast: ToastFn;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
   const { data: config, isLoading } = useQuery({
@@ -215,7 +216,7 @@ function SimulateIncoming({
   addToast,
   queryClient,
 }: {
-  addToast: (msg: string, type: string) => void;
+  addToast: ToastFn;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
   const { data } = useQuery({

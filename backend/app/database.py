@@ -4,20 +4,27 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kyc.db")
 
+# Railway Postgres URLs use postgres:// but SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+
+connect_args = {"check_same_thread": False} if _is_sqlite else {}
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args=connect_args,
     pool_pre_ping=True,
 )
 
-
-@event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA busy_timeout=5000")
-    cursor.close()
-
+if _is_sqlite:
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -36,11 +43,12 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    _auto_migrate()
+    if _is_sqlite:
+        _auto_migrate()
 
 
 def _auto_migrate():
-    """Add columns that may be missing on older databases."""
+    """Add columns that may be missing on older SQLite databases."""
     migrations = [
         ("applications", "evidence_annotations", "TEXT"),
         ("applications", "regulatory_flags", "TEXT"),
@@ -58,7 +66,6 @@ def _auto_migrate():
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
                 conn.commit()
 
-        # Backfill emails for existing applications that don't have one
         conn.execute(text(
             "UPDATE applications "
             "SET email = LOWER(first_name || '.' || last_name || '@example.com') "

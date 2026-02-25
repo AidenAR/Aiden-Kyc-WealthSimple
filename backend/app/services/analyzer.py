@@ -91,26 +91,14 @@ Return ONLY the JSON object, no additional text."""
 
 def _pdf_to_image_bytes(pdf_path: Path) -> tuple[bytes, str]:
     """Convert the first page of a PDF to a JPEG image for vision analysis."""
-    from PIL import Image
-    import subprocess
-    import tempfile
+    import fitz  # PyMuPDF
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        out_path = Path(tmpdir) / "page.jpg"
-        try:
-            subprocess.run(
-                ["sips", "-s", "format", "jpeg", str(pdf_path), "--out", str(out_path)],
-                capture_output=True, timeout=15, check=True,
-            )
-            return out_path.read_bytes(), "image/jpeg"
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-
-        img = Image.open(pdf_path)
-        img = img.convert("RGB")
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return buf.getvalue(), "image/jpeg"
+    doc = fitz.open(str(pdf_path))
+    page = doc[0]
+    pix = page.get_pixmap(dpi=200)
+    img_bytes = pix.tobytes("jpeg")
+    doc.close()
+    return img_bytes, "image/jpeg"
 
 
 def _prepare_image(doc_path: Path) -> dict:
