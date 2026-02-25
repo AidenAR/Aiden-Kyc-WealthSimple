@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, CheckCircle, Loader2, X, Mic } from 'lucide-react';
 import { submitApplication } from '@/lib/api';
 import { useToast } from '@/components/Toast';
-import { useViewMode } from '@/hooks/useViewMode';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { WebcamCapture } from '@/components/WebcamCapture';
 
 const DOCUMENT_TYPES = [
   { value: 'drivers_license', label: "Driver's License" },
@@ -16,7 +16,7 @@ const DOCUMENT_TYPES = [
 export function SubmitApplication() {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const { profile } = useViewMode();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,12 +110,12 @@ export function SubmitApplication() {
 
       <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border p-6 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Email <span className="text-red-500">*</span></label>
           <input
             name="email"
             type="email"
             required
-            defaultValue={profile?.email || ''}
+            defaultValue={user?.email || ''}
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="you@example.com"
           />
@@ -123,7 +123,7 @@ export function SubmitApplication() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">First Name</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">First Name <span className="text-red-500">*</span></label>
             <input
               name="first_name"
               required
@@ -134,7 +134,7 @@ export function SubmitApplication() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Last Name</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Last Name <span className="text-red-500">*</span></label>
             <input
               name="last_name"
               required
@@ -148,7 +148,7 @@ export function SubmitApplication() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Date of Birth</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Date of Birth <span className="text-red-500">*</span></label>
             <input
               name="date_of_birth"
               type="date"
@@ -157,7 +157,7 @@ export function SubmitApplication() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Country</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Country <span className="text-red-500">*</span></label>
             <input
               name="country"
               required
@@ -168,7 +168,7 @@ export function SubmitApplication() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Address</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Address <span className="text-red-500">*</span></label>
           <textarea
             name="address"
             required
@@ -179,7 +179,7 @@ export function SubmitApplication() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Document Type</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Document Type <span className="text-red-500">*</span></label>
           <select
             name="document_type"
             required
@@ -196,7 +196,7 @@ export function SubmitApplication() {
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">
-            Identity Documents <span className="text-muted-foreground font-normal">(up to 5)</span>
+            Identity Documents <span className="text-red-500">*</span> <span className="text-muted-foreground font-normal">(up to 5)</span>
           </label>
           <div className="border-2 border-dashed border-input rounded-lg p-6 text-center hover:border-accent transition-colors">
             <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -232,25 +232,12 @@ export function SubmitApplication() {
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1.5">
-            Selfie Photo <span className="text-red-500">*</span>
+            Live Selfie <span className="text-red-500">*</span>
           </label>
           <p className="text-xs text-muted-foreground mb-2">
-            Take a clear photo of your face. This will be compared with the photo on your ID.
+            Take a live photo using your camera. This will be compared with the photo on your ID.
           </p>
-          <div className={cn(
-            'border-2 border-dashed rounded-lg p-4 text-center transition-colors',
-            selfieFile ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/10' : 'border-input hover:border-accent'
-          )}>
-            <p className="text-sm text-muted-foreground mb-2">
-              {selfieFile ? selfieFile.name : 'Upload a clear selfie for facial verification'}
-            </p>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setSelfieFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-accent file:text-white dark:file:text-black hover:file:opacity-90 file:cursor-pointer"
-            />
-          </div>
+          <WebcamCapture onCapture={setSelfieFile} />
         </div>
 
         <div>
@@ -272,7 +259,7 @@ export function SubmitApplication() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
             {error}
           </div>
         )}

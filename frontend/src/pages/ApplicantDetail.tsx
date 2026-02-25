@@ -13,7 +13,7 @@ import {
 import { useApplication } from '@/hooks/useApplications';
 import { StatusBadge } from '@/components/StatusBadge';
 import { cn, formatDate, documentTypeLabel } from '@/lib/utils';
-import { useViewMode } from '@/hooks/useViewMode';
+import { useAuth } from '@/hooks/useAuth';
 
 const STATUS_STEPS = [
   { key: 'submitted', label: 'Submitted', icon: FileText },
@@ -41,7 +41,7 @@ function getDecisionInfo(status: string) {
 
 export function ApplicantDetail() {
   const { id } = useParams<{ id: string }>();
-  const { isAdmin } = useViewMode();
+  const { isAdmin } = useAuth();
   const { data: app, isLoading } = useApplication(id!);
 
   const backPath = isAdmin ? '/dashboard' : '/my-applications';

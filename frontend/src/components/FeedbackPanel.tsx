@@ -49,7 +49,7 @@ export function FeedbackPanel({ applicationId }: { applicationId: string }) {
   if (submitted) {
     return (
       <div className="bg-card rounded-xl border border-border p-4">
-        <div className="flex items-center gap-2 text-emerald-600">
+        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Feedback logged to retraining queue</span>
         </div>

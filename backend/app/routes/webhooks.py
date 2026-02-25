@@ -54,7 +54,7 @@ async def receive_incoming_webhook(
 ):
     """
     Receive an incoming webhook from Wealthsimple.
-    Creates a new KYC review application from the payload.
+    Creates a new VeriFlow application from the payload.
     """
     config = load_webhook_config()
 

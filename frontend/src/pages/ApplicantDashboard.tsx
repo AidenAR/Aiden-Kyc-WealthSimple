@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getApplications } from '@/lib/api';
-import { useViewMode } from '@/hooks/useViewMode';
+import { useAuth } from '@/hooks/useAuth';
 import { StatusBadge } from '@/components/StatusBadge';
 import { cn, formatDate, documentTypeLabel } from '@/lib/utils';
 
@@ -52,33 +52,23 @@ const STATUS_INFO: Record<string, { icon: typeof Clock; color: string; message: 
 };
 
 export function ApplicantDashboard() {
-  const { profile } = useViewMode();
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['myApplications', profile?.email],
-    queryFn: () => getApplications({ email: profile!.email }),
+    queryKey: ['myApplications', user?.email],
+    queryFn: () => getApplications({ email: user!.email }),
     refetchInterval: 3000,
-    enabled: !!profile?.email,
+    enabled: !!user?.email,
   });
 
   const applications = data?.applications;
-
-  if (!profile) {
-    return (
-      <div className="text-center py-16 text-muted-foreground">
-        <FileText className="h-12 w-12 mx-auto mb-3 opacity-40" />
-        <p className="text-lg font-medium">No profile set</p>
-        <p className="text-sm mt-1">Switch to the applicant view and set up your profile to see your applications.</p>
-      </div>
-    );
-  }
 
   return (
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">My Applications</h1>
         <p className="text-muted-foreground mt-1">
-          Showing applications for <span className="font-medium text-foreground">{profile.email}</span>
+          Showing applications for <span className="font-medium text-foreground">{user?.email}</span>
         </p>
       </div>
 

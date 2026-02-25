@@ -10,7 +10,7 @@ import {
   Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useViewMode } from '@/hooks/useViewMode';
+import { useAuth } from '@/hooks/useAuth';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import {
   getVoiceEnrollment,
@@ -31,11 +31,11 @@ const SEVERITY_STYLES: Record<string, { icon: typeof Info; bg: string; text: str
 };
 
 export function VoiceReverify() {
-  const { profile } = useViewMode();
+  const { user } = useAuth();
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
   const [result, setResult] = useState<VoiceReverifyResult | null>(null);
 
-  const email = profile?.email || '';
+  const email = user?.email || '';
 
   const { data: enrollment, isLoading: enrollLoading } = useQuery({
     queryKey: ['voiceEnrollment', email],

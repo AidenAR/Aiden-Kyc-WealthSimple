@@ -1,8 +1,10 @@
-import os
 import uuid
+import io
 from pathlib import Path
 from PIL import Image
-import io
+
+from app.database import SessionLocal
+from app.models.application import StoredFile
 
 UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -27,8 +29,21 @@ def save_document(file_bytes: bytes, filename: str) -> str:
         file_bytes = _resize_if_needed(file_bytes)
 
     stored_name = f"{uuid.uuid4()}{ext}"
+
+    # Save to disk (fast local access)
     path = UPLOAD_DIR / stored_name
     path.write_bytes(file_bytes)
+
+    # Save to database (survives redeployments)
+    db = SessionLocal()
+    try:
+        db.add(StoredFile(filename=stored_name, data=file_bytes))
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
     return stored_name
 
 
@@ -45,9 +60,20 @@ def _resize_if_needed(file_bytes: bytes) -> bytes:
 
 def get_document_path(filename: str) -> Path:
     path = UPLOAD_DIR / filename
-    if not path.exists():
-        raise FileNotFoundError(f"Document not found: {filename}")
-    return path
+    if path.exists():
+        return path
+
+    # File not on disk — restore from database
+    db = SessionLocal()
+    try:
+        stored = db.query(StoredFile).filter(StoredFile.filename == filename).first()
+        if stored:
+            path.write_bytes(stored.data)
+            return path
+    finally:
+        db.close()
+
+    raise FileNotFoundError(f"Document not found: {filename}")
 
 
 def cleanup_uploads():

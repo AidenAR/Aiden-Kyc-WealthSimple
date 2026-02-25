@@ -15,6 +15,7 @@ import {
 import { useApplication, useReviewApplication } from '@/hooks/useApplications';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useToast } from '@/components/Toast';
+import { reprocessApplication } from '@/lib/api';
 import { RiskBadge } from '@/components/RiskBadge';
 import { RiskGauge } from '@/components/RiskGauge';
 import { Timeline } from '@/components/Timeline';
@@ -47,6 +48,7 @@ export function ApplicationDetail() {
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reprocessing, setReprocessing] = useState(false);
   const prevStatusRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -295,10 +297,28 @@ export function ApplicationDetail() {
           )}
 
           {app.processing_error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-5">
-              <h2 className="text-sm font-semibold text-red-800 mb-2">Processing Error</h2>
-              <p className="text-sm text-red-700">{app.processing_error}</p>
-              <p className="text-xs text-red-600 mt-1">Retries: {app.retry_count}/3</p>
+            <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">Processing Error</h2>
+              <p className="text-sm text-red-700 dark:text-red-400">{app.processing_error}</p>
+              <p className="text-xs text-red-600 dark:text-red-500 mt-1">Retries: {app.retry_count}/3</p>
+              <button
+                onClick={async () => {
+                  setReprocessing(true);
+                  try {
+                    await reprocessApplication(app.id);
+                    addToast('Application sent for reprocessing', 'success');
+                  } catch {
+                    addToast('Failed to reprocess', 'error');
+                  } finally {
+                    setReprocessing(false);
+                  }
+                }}
+                disabled={reprocessing}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition disabled:opacity-50"
+              >
+                {reprocessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
+                Reprocess Application
+              </button>
             </div>
           )}
 
@@ -321,9 +341,9 @@ export function ApplicationDetail() {
                   const icons = { approved: CheckCircle, rejected: XCircle, needs_info: Info };
                   const labels = { approved: 'Approve', rejected: 'Reject', needs_info: 'Need Info' };
                   const colors = {
-                    approved: 'border-emerald-300 bg-emerald-50 text-emerald-700',
-                    rejected: 'border-red-300 bg-red-50 text-red-700',
-                    needs_info: 'border-purple-300 bg-purple-50 text-purple-700',
+                    approved: 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400',
+                    rejected: 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400',
+                    needs_info: 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400',
                   };
                   const Icon = icons[d];
                   return (
@@ -374,7 +394,7 @@ export function ApplicationDetail() {
               </div>
 
               {reviewError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 mb-3">
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-2 text-sm text-red-700 dark:text-red-400 mb-3">
                   {reviewError}
                 </div>
               )}
@@ -398,6 +418,36 @@ export function ApplicationDetail() {
 
           {app.risk_score !== null && (
             <FeedbackPanel applicationId={app.id} />
+          )}
+
+          {app.status !== 'submitted' && app.status !== 'processing' && (
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <History className="h-4 w-4 text-muted-foreground" />
+                Reprocess
+              </h2>
+              <p className="text-xs text-muted-foreground mb-3">
+                Send this application back through AI analysis. All previous results will be cleared.
+              </p>
+              <button
+                onClick={async () => {
+                  setReprocessing(true);
+                  try {
+                    await reprocessApplication(app.id);
+                    addToast('Application sent for reprocessing', 'success');
+                  } catch {
+                    addToast('Failed to reprocess', 'error');
+                  } finally {
+                    setReprocessing(false);
+                  }
+                }}
+                disabled={reprocessing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-white dark:text-black rounded-lg text-xs font-semibold hover:opacity-90 transition disabled:opacity-50"
+              >
+                {reprocessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
+                Reprocess Application
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -469,12 +519,12 @@ function ComparisonTable({ app }: { app: ReturnType<typeof useApplication>['data
             key={i}
             className={cn(
               'grid grid-cols-3 gap-2 py-2 text-sm',
-              !isMatch && 'bg-red-50 -mx-2 px-2 rounded'
+              !isMatch && 'bg-red-50 dark:bg-red-950/30 -mx-2 px-2 rounded'
             )}
           >
             <span className="text-muted-foreground">{row.label}</span>
             <span className="text-foreground">{row.submitted}</span>
-            <span className={cn('font-medium', !isMatch ? 'text-red-700' : 'text-foreground')}>
+            <span className={cn('font-medium', !isMatch ? 'text-red-700 dark:text-red-400' : 'text-foreground')}>
               {row.extracted}
               {!isMatch && <AlertTriangle className="inline h-3.5 w-3.5 ml-1 text-red-500" />}
             </span>
@@ -487,9 +537,9 @@ function ComparisonTable({ app }: { app: ReturnType<typeof useApplication>['data
 
 function FlagItem({ flag }: { flag: Flag }) {
   const styles = {
-    critical: { bg: 'bg-red-50 border-red-200', icon: 'text-red-600', text: 'text-red-800' },
-    warning: { bg: 'bg-amber-50 border-amber-200', icon: 'text-amber-600', text: 'text-amber-800' },
-    info: { bg: 'bg-blue-50 border-blue-200', icon: 'text-blue-600', text: 'text-blue-800' },
+    critical: { bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800', icon: 'text-red-600 dark:text-red-400', text: 'text-red-800 dark:text-red-300' },
+    warning: { bg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800', icon: 'text-amber-600 dark:text-amber-400', text: 'text-amber-800 dark:text-amber-300' },
+    info: { bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800', icon: 'text-blue-600 dark:text-blue-400', text: 'text-blue-800 dark:text-blue-300' },
   };
   const s = styles[flag.severity] || styles.info;
   const icons = { critical: XCircle, warning: AlertTriangle, info: Info };

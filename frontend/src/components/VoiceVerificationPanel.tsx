@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react';
-import { Mic, XCircle, AlertTriangle, Info, Volume2, Play, Pause } from 'lucide-react';
+import { Mic, XCircle, AlertTriangle, Info, CheckCircle, Volume2, Play, Pause, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VoiceVerification {
-  passphrase_match: boolean;
-  passphrase_similarity: number;
-  transcription: string;
-  expected_passphrase: string;
-  spoken_name: string | null;
-  name_matches_claim: boolean;
-  audio_quality: string;
-  confidence: number;
-  language_detected: string;
-  anomalies: Array<{
+  passphrase_match?: boolean;
+  passphrase_similarity?: number;
+  transcription?: string;
+  expected_passphrase?: string;
+  spoken_name?: string | null;
+  name_matches_claim?: boolean;
+  audio_quality?: string;
+  confidence?: number;
+  language_detected?: string;
+  anomalies?: Array<{
     type: string;
     severity: 'critical' | 'warning' | 'info';
     description: string;
@@ -28,6 +28,7 @@ const SEVERITY_STYLES = {
 };
 
 const RESULT_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  enrolled: { bg: 'bg-blue-100 dark:bg-blue-950/30', text: 'text-blue-700 dark:text-blue-400', label: 'ENROLLED' },
   pass: { bg: 'bg-emerald-100 dark:bg-emerald-950/30', text: 'text-emerald-700 dark:text-emerald-400', label: 'PASS' },
   fail: { bg: 'bg-red-100 dark:bg-red-950/30', text: 'text-red-700 dark:text-red-400', label: 'FAIL' },
   inconclusive: { bg: 'bg-amber-100 dark:bg-amber-950/30', text: 'text-amber-700 dark:text-amber-400', label: 'INCONCLUSIVE' },
@@ -58,7 +59,7 @@ function AudioPlayer({ src }: { src: string }) {
         {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
       </button>
       <span className="text-[10px] text-muted-foreground font-medium">
-        {playing ? 'Playing enrolled sample…' : 'Play enrolled voice sample'}
+        {playing ? 'Playing enrolled sample...' : 'Play enrolled voice sample'}
       </span>
       <audio
         ref={audioRef}
@@ -72,6 +73,7 @@ function AudioPlayer({ src }: { src: string }) {
 
 export function VoiceVerificationPanel({ data, voiceUrl }: { data: VoiceVerification; voiceUrl?: string | null }) {
   const resultStyle = RESULT_STYLES[data.verification_result] || RESULT_STYLES.error;
+  const isEnrolled = data.verification_result === 'enrolled';
 
   return (
     <div className="bg-card rounded-xl border border-border p-5">
@@ -88,77 +90,102 @@ export function VoiceVerificationPanel({ data, voiceUrl }: { data: VoiceVerifica
       {voiceUrl && <AudioPlayer src={voiceUrl} />}
       {voiceUrl && <div className="h-3" />}
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground">{(data.passphrase_similarity * 100).toFixed(0)}%</p>
-          <p className="text-[10px] text-muted-foreground">Passphrase Match</p>
-        </div>
-        <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground">{(data.confidence * 100).toFixed(0)}%</p>
-          <p className="text-[10px] text-muted-foreground">Confidence</p>
-        </div>
-        <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground capitalize">{data.audio_quality}</p>
-          <p className="text-[10px] text-muted-foreground">Audio Quality</p>
-        </div>
-      </div>
-
-      <div className="space-y-3 mb-4">
-        <div className="bg-muted/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Volume2 className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Expected</span>
+      {isEnrolled ? (
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+          <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Voice Baseline Enrolled</p>
+            <p className="text-xs text-blue-700/80 dark:text-blue-400/80 mt-1">
+              This voice sample has been saved as the biometric baseline. It will be used
+              for identity re-verification on future visits via the Voice ID page.
+            </p>
           </div>
-          <p className="text-xs text-foreground italic">&ldquo;{data.expected_passphrase}&rdquo;</p>
         </div>
-        <div className="bg-muted/30 rounded-lg p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Mic className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Transcribed</span>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="text-center p-3 bg-muted/50 rounded-lg">
+              <p className="text-lg font-bold text-foreground">
+                {data.passphrase_similarity != null ? `${(data.passphrase_similarity * 100).toFixed(0)}%` : 'N/A'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Passphrase Match</p>
+            </div>
+            <div className="text-center p-3 bg-muted/50 rounded-lg">
+              <p className="text-lg font-bold text-foreground">
+                {data.confidence != null ? `${(data.confidence * 100).toFixed(0)}%` : 'N/A'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Confidence</p>
+            </div>
+            <div className="text-center p-3 bg-muted/50 rounded-lg">
+              <p className="text-lg font-bold text-foreground capitalize">{data.audio_quality || 'N/A'}</p>
+              <p className="text-[10px] text-muted-foreground">Audio Quality</p>
+            </div>
           </div>
-          <p className="text-xs text-foreground italic">&ldquo;{data.transcription || '(empty)'}&rdquo;</p>
-        </div>
-      </div>
 
-      <div className="space-y-2 mb-4 text-xs">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Name Spoken</span>
-          <span className="font-medium text-foreground">{data.spoken_name || 'N/A'}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Name Matches Claim</span>
-          <span className={cn('font-medium', data.name_matches_claim ? 'text-emerald-600' : 'text-red-600')}>
-            {data.name_matches_claim ? 'Yes' : 'No'}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Language</span>
-          <span className="font-medium text-foreground">{data.language_detected}</span>
-        </div>
-      </div>
-
-      {data.anomalies && data.anomalies.length > 0 && (
-        <div className="space-y-2 mb-4">
-          <h3 className="text-xs font-semibold text-foreground">Anomalies</h3>
-          {data.anomalies.map((a, i) => {
-            const style = SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.info;
-            const Icon = style.icon;
-            return (
-              <div key={i} className={cn('p-2.5 rounded-lg border text-xs', style.bg)}>
-                <div className="flex items-start gap-2">
-                  <Icon className={cn('h-3.5 w-3.5 shrink-0 mt-0.5', style.text)} />
-                  <div>
-                    <span className={cn('font-medium', style.text)}>{a.type.replace(/_/g, ' ')}</span>
-                    <p className="text-foreground/80 mt-0.5">{a.description}</p>
-                  </div>
+          {data.expected_passphrase && (
+            <div className="space-y-3 mb-4">
+              <div className="bg-muted/30 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Volume2 className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Expected</span>
                 </div>
+                <p className="text-xs text-foreground italic">&ldquo;{data.expected_passphrase}&rdquo;</p>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div className="bg-muted/30 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Mic className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Transcribed</span>
+                </div>
+                <p className="text-xs text-foreground italic">&ldquo;{data.transcription || '(empty)'}&rdquo;</p>
+              </div>
+            </div>
+          )}
 
-      <p className="text-xs text-muted-foreground border-t border-border pt-3">{data.explanation}</p>
+          {data.spoken_name && (
+            <div className="space-y-2 mb-4 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name Spoken</span>
+                <span className="font-medium text-foreground">{data.spoken_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name Matches Claim</span>
+                <span className={cn('font-medium', data.name_matches_claim ? 'text-emerald-600' : 'text-red-600')}>
+                  {data.name_matches_claim ? 'Yes' : 'No'}
+                </span>
+              </div>
+              {data.language_detected && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Language</span>
+                  <span className="font-medium text-foreground">{data.language_detected}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {data.anomalies && data.anomalies.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <h3 className="text-xs font-semibold text-foreground">Anomalies</h3>
+              {data.anomalies.map((a, i) => {
+                const style = SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.info;
+                const Icon = style.icon;
+                return (
+                  <div key={i} className={cn('p-2.5 rounded-lg border text-xs', style.bg)}>
+                    <div className="flex items-start gap-2">
+                      <Icon className={cn('h-3.5 w-3.5 shrink-0 mt-0.5', style.text)} />
+                      <div>
+                        <span className={cn('font-medium', style.text)}>{a.type.replace(/_/g, ' ')}</span>
+                        <p className="text-foreground/80 mt-0.5">{a.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground border-t border-border pt-3">{data.explanation}</p>
+        </>
+      )}
     </div>
   );
 }

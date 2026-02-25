@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils';
 import type { RiskLevel } from '@/types';
 
 const riskStyles: Record<RiskLevel, string> = {
-  high: 'bg-red-100 text-red-800 border-red-200',
-  medium: 'bg-amber-100 text-amber-800 border-amber-200',
-  low: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  high: 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800',
+  medium: 'bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  low: 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
 };
 
 export function RiskBadge({ level }: { level: RiskLevel | null }) {

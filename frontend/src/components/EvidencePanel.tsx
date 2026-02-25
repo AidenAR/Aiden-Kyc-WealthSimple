@@ -17,43 +17,43 @@ const ISSUE_TYPE_CONFIG: Record<
   match: {
     label: 'Match',
     icon: CheckCircle,
-    color: 'text-emerald-600',
+    color: 'text-emerald-600 dark:text-emerald-400',
     bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
   },
   mismatch: {
     label: 'Mismatch',
     icon: XCircle,
-    color: 'text-red-600',
+    color: 'text-red-600 dark:text-red-400',
     bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   },
   blur: {
     label: 'Blur Detected',
     icon: Eye,
-    color: 'text-amber-600',
+    color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800',
   },
   tampering: {
     label: 'Tampering Suspected',
     icon: Fingerprint,
-    color: 'text-red-600',
+    color: 'text-red-600 dark:text-red-400',
     bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   },
   quality: {
     label: 'Quality Issue',
     icon: Scan,
-    color: 'text-amber-600',
+    color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800',
   },
   expiry: {
     label: 'Expiry Issue',
     icon: AlertTriangle,
-    color: 'text-red-600',
+    color: 'text-red-600 dark:text-red-400',
     bg: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
   },
   info: {
     label: 'Info',
     icon: CheckCircle,
-    color: 'text-blue-600',
+    color: 'text-blue-600 dark:text-blue-400',
     bg: 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
   },
 };
@@ -73,13 +73,13 @@ export function EvidencePanel({ annotations }: { annotations: EvidenceAnnotation
       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1">
         <span>{annotations.length} field{annotations.length !== 1 ? 's' : ''} analyzed</span>
         {criticalCount > 0 && (
-          <span className="flex items-center gap-1 text-red-600 font-medium">
+          <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
             {criticalCount} critical
           </span>
         )}
         {warningCount > 0 && (
-          <span className="flex items-center gap-1 text-amber-600 font-medium">
+          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             {warningCount} warning
           </span>

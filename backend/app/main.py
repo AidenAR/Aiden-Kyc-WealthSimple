@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
-from app.routes import applications, audit, stats, feedback, simulator, demo, config, voice, webhooks
+from app.routes import applications, audit, stats, feedback, simulator, demo, config, voice, webhooks, auth
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(applications.router)
 app.include_router(audit.router)
 app.include_router(stats.router)

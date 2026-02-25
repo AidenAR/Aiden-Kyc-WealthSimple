@@ -58,16 +58,16 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     info: Info,
   };
   const colors = {
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    success: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300',
+    error: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
+    warning: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300',
+    info: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300',
   };
   const iconColors = {
-    success: 'text-emerald-600',
-    error: 'text-red-600',
-    warning: 'text-amber-600',
-    info: 'text-blue-600',
+    success: 'text-emerald-600 dark:text-emerald-400',
+    error: 'text-red-600 dark:text-red-400',
+    warning: 'text-amber-600 dark:text-amber-400',
+    info: 'text-blue-600 dark:text-blue-400',
   };
 
   const Icon = icons[toast.type];

@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models.application import Application, Job, ApplicationStatus
+from app.models.application import Application, Job, ApplicationStatus, User
 from app.schemas.application import (
     ApplicationResponse,
     ApplicationListResponse,
     ReviewRequest,
 )
 from app.services import storage, audit
+from app.services.auth import get_optional_user, require_admin
 from app.services.webhooks import simulate_outgoing_webhook
 from app.services.rate_limiter import check_rate_limit
 
@@ -128,10 +129,13 @@ def list_applications(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
     query = db.query(Application)
 
-    if email:
+    if current_user and current_user.role != "admin":
+        query = query.filter(Application.email == current_user.email)
+    elif email:
         query = query.filter(Application.email == email)
     if status:
         query = query.filter(Application.status == status)
@@ -170,6 +174,7 @@ def get_review_queue(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
     """Applications pending review, sorted by risk score (highest first)."""
     query = db.query(Application).filter(
@@ -195,10 +200,16 @@ def get_review_queue(
 
 
 @router.get("/{application_id}", response_model=ApplicationResponse)
-def get_application(application_id: str, db: Session = Depends(get_db)):
+def get_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     app = db.query(Application).filter(Application.id == application_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+    if current_user and current_user.role != "admin" and app.email != current_user.email:
+        raise HTTPException(status_code=403, detail="Access denied")
     return _to_response(app)
 
 
@@ -207,6 +218,7 @@ def review_application(
     application_id: str,
     review: ReviewRequest,
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
     app = db.query(Application).filter(Application.id == application_id).first()
     if not app:
@@ -256,6 +268,52 @@ def review_application(
         pass
 
     return {"id": app.id, "status": app.status, "message": "Review submitted"}
+
+
+@router.post("/{application_id}/reprocess")
+def reprocess_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    app = db.query(Application).filter(Application.id == application_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    app.status = ApplicationStatus.SUBMITTED.value
+    app.retry_count = 0
+    app.processing_error = None
+    app.risk_score = None
+    app.risk_level = None
+    app.confidence_score = None
+    app.ai_explanation = None
+    app.extracted_data = None
+    app.flags = None
+    app.cross_reference_results = None
+    app.document_quality = None
+    app.evidence_annotations = None
+    app.regulatory_flags = None
+    app.regulatory_priority = None
+    app.facial_match = None
+    app.review_decision = None
+    app.review_reason = None
+    app.review_notes = None
+    app.reviewed_by = None
+    app.reviewed_at = None
+
+    job = Job(application_id=app.id)
+    db.add(job)
+    db.commit()
+
+    audit.log_event(
+        db,
+        action="reprocess_requested",
+        actor="reviewer",
+        application_id=app.id,
+        details={"message": "Application sent for reprocessing"},
+    )
+
+    return {"id": app.id, "status": app.status, "message": "Sent for reprocessing"}
 
 
 @router.get("/{application_id}/voice")

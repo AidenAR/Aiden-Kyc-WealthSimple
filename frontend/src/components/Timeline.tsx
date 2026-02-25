@@ -9,22 +9,22 @@ const ACTION_CONFIG: Record<string, {
 }> = {
   application_submitted: {
     icon: Clock,
-    color: 'text-blue-600 bg-blue-100',
+    color: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/30',
     label: 'Application Submitted',
   },
   ai_analysis_completed: {
     icon: Shield,
-    color: 'text-indigo-600 bg-indigo-100',
+    color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-950/30',
     label: 'AI Analysis Complete',
   },
   application_reviewed: {
     icon: CheckCircle,
-    color: 'text-emerald-600 bg-emerald-100',
+    color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/30',
     label: 'Review Submitted',
   },
   processing_failed: {
     icon: XCircle,
-    color: 'text-red-600 bg-red-100',
+    color: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/30',
     label: 'Processing Failed',
   },
 };
@@ -54,7 +54,7 @@ export function Timeline({ entries }: TimelineProps) {
         {sorted.map((entry, i) => {
           const config = ACTION_CONFIG[entry.action] || {
             icon: Clock,
-            color: 'text-gray-600 bg-gray-100',
+            color: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800',
             label: entry.action,
           };
           const Icon = config.icon;
@@ -112,9 +112,9 @@ function TimelineDetails({ details, action }: { details: Record<string, unknown>
         {details.decision != null && (
           <span className={cn(
             'text-xs px-1.5 py-0.5 rounded font-medium capitalize',
-            details.decision === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-            details.decision === 'rejected' ? 'bg-red-100 text-red-800' :
-            'bg-purple-100 text-purple-800'
+            details.decision === 'approved' ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300' :
+            details.decision === 'rejected' ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-300' :
+            'bg-purple-100 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300'
           )}>
             {String(details.decision)}
           </span>
@@ -123,7 +123,7 @@ function TimelineDetails({ details, action }: { details: Record<string, unknown>
           <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{String(details.reason)}</span>
         )}
         {details.is_override != null && (
-          <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+          <span className="text-xs bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
             <AlertTriangle className="h-3 w-3" /> Override
           </span>
         )}

@@ -10,10 +10,10 @@ const RESULT_STYLES: Record<string, { bg: string; text: string; label: string }>
 };
 
 const ASSESSMENT_COLORS: Record<string, string> = {
-  match: 'text-emerald-600',
-  possible_match: 'text-amber-600',
-  mismatch: 'text-red-600',
-  unclear: 'text-gray-500',
+  match: 'text-emerald-600 dark:text-emerald-400',
+  possible_match: 'text-amber-600 dark:text-amber-400',
+  mismatch: 'text-red-600 dark:text-red-400',
+  unclear: 'text-gray-500 dark:text-gray-400',
 };
 
 const SEVERITY_STYLES = {

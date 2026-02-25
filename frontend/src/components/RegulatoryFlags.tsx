@@ -30,17 +30,17 @@ const SEVERITY_STYLES: Record<string, { border: string; bg: string; icon: string
   critical: {
     border: 'border-red-300 dark:border-red-700',
     bg: 'bg-red-50 dark:bg-red-950/30',
-    icon: 'text-red-600',
+    icon: 'text-red-600 dark:text-red-400',
   },
   warning: {
     border: 'border-amber-300 dark:border-amber-700',
     bg: 'bg-amber-50 dark:bg-amber-950/30',
-    icon: 'text-amber-600',
+    icon: 'text-amber-600 dark:text-amber-400',
   },
   info: {
     border: 'border-emerald-200 dark:border-emerald-800',
     bg: 'bg-emerald-50/50 dark:bg-emerald-950/20',
-    icon: 'text-emerald-600',
+    icon: 'text-emerald-600 dark:text-emerald-400',
   },
 };
 
@@ -67,19 +67,19 @@ export function RegulatoryFlags({
       <div className="flex items-center flex-wrap gap-3 text-xs text-muted-foreground">
         <span>{flags.length} checks run</span>
         {criticalCount > 0 && (
-          <span className="flex items-center gap-1 text-red-600 font-medium">
+          <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
             {criticalCount} critical
           </span>
         )}
         {warningCount > 0 && (
-          <span className="flex items-center gap-1 text-amber-600 font-medium">
+          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             {warningCount} warning
           </span>
         )}
         {cleared.length > 0 && (
-          <span className="flex items-center gap-1 text-emerald-600 font-medium">
+          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
             <CheckCircle className="h-3 w-3" />
             {cleared.length} clear
           </span>
@@ -131,7 +131,7 @@ export function RegulatoryFlags({
       {cleared.length > 0 && (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             <span className="text-xs font-semibold text-foreground">Checks Passed</span>
           </div>
           <div className="space-y-1.5">

@@ -3,14 +3,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 
 from app.database import get_db
-from app.models.application import Application, ApplicationStatus, FeedbackEntry
+from app.models.application import Application, ApplicationStatus, FeedbackEntry, User
 from app.schemas.application import StatsResponse
+from app.services.auth import require_admin
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
 @router.get("", response_model=StatsResponse)
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
     total = db.query(func.count(Application.id)).scalar() or 0
 
     def count_status(status: str) -> int:

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Float, Text, DateTime, Integer, JSON, Enum as SAEnum
+    Column, String, Float, Text, DateTime, Integer, JSON, LargeBinary, Enum as SAEnum
 )
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
@@ -15,6 +15,17 @@ def _utcnow():
 
 def _gen_id():
     return str(uuid.uuid4())
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_gen_id)
+    email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(20), default="applicant")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
 class ApplicationStatus(str, enum.Enum):
@@ -147,3 +158,11 @@ class FeedbackEntry(Base):
     created_by: Mapped[str] = mapped_column(String(100), default="compliance_officer")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     status: Mapped[str] = mapped_column(String(20), default="pending")
+
+
+class StoredFile(Base):
+    __tablename__ = "stored_files"
+
+    filename: Mapped[str] = mapped_column(String(255), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

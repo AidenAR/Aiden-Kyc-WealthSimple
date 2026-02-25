@@ -16,10 +16,16 @@ import type {
 
 const BASE_URL = '/api';
 
+function getAuthHeader(): Record<string, string> {
+  const token = localStorage.getItem('auth_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
+      ...getAuthHeader(),
       ...(options?.headers || {}),
     },
   });
@@ -35,6 +41,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export async function submitApplication(formData: FormData) {
   const res = await fetch(`${BASE_URL}/applications`, {
     method: 'POST',
+    headers: getAuthHeader(),
     body: formData,
   });
   if (!res.ok) {
@@ -85,6 +92,10 @@ export async function getReviewQueue(params?: {
   }
   const query = searchParams.toString();
   return request<ApplicationListResponse>(`/applications/queue${query ? `?${query}` : ''}`);
+}
+
+export async function reprocessApplication(id: string) {
+  return request(`/applications/${id}/reprocess`, { method: 'POST' });
 }
 
 export async function reviewApplication(id: string, review: ReviewRequest) {
@@ -238,6 +249,7 @@ export async function voiceReverify(email: string, audioBlob: Blob): Promise<Voi
 
   const res = await fetch(`${BASE_URL}/voice/reverify`, {
     method: 'POST',
+    headers: getAuthHeader(),
     body: formData,
   });
 

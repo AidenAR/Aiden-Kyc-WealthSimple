@@ -69,12 +69,12 @@ export function Dashboard() {
 
       {stats && !showAnalytics && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
-          <StatCard icon={Clock} label="Pending Review" value={stats.pending_review} color="text-amber-600" />
-          <StatCard icon={Loader2} label="Processing" value={stats.processing} color="text-indigo-600" />
-          <StatCard icon={CheckCircle} label="Approved" value={stats.approved} color="text-emerald-600" />
-          <StatCard icon={XCircle} label="Rejected" value={stats.rejected} color="text-red-600" />
-          <StatCard icon={AlertTriangle} label="High Risk" value={stats.high_risk} color="text-red-600" />
-          <StatCard icon={MessageSquareWarning} label="Retraining Queue" value={stats.feedback_queue_size} color="text-amber-500" />
+          <StatCard icon={Clock} label="Pending Review" value={stats.pending_review} color="text-amber-600 dark:text-amber-400" />
+          <StatCard icon={Loader2} label="Processing" value={stats.processing} color="text-indigo-600 dark:text-indigo-400" />
+          <StatCard icon={CheckCircle} label="Approved" value={stats.approved} color="text-emerald-600 dark:text-emerald-400" />
+          <StatCard icon={XCircle} label="Rejected" value={stats.rejected} color="text-red-600 dark:text-red-400" />
+          <StatCard icon={AlertTriangle} label="High Risk" value={stats.high_risk} color="text-red-600 dark:text-red-400" />
+          <StatCard icon={MessageSquareWarning} label="Retraining Queue" value={stats.feedback_queue_size} color="text-amber-500 dark:text-amber-400" />
           <StatCard icon={Shield} label="Total" value={stats.total_applications} color="text-foreground" />
         </div>
       )}

@@ -54,6 +54,9 @@ Return ONLY a valid JSON object:
 - Focus on: face shape, eye spacing, nose structure, jawline, skin tone, hair consistency, apparent age
 - Note if the document photo looks artificially swapped or tampered with
 - Note significant differences in apparent age between document photo and selfie
+- If the document image is NOT a valid ID or contains no face, set match_result to "mismatch", similarity_score to 0.0, face_detected_in_document to false, and add an anomaly explaining the issue
+
+ALWAYS return the full JSON structure regardless of image content. Never refuse or return empty.
 
 Return ONLY the JSON object."""
 
@@ -100,20 +103,34 @@ def compare_faces(
         _prepare_image(sel_path),
     ]
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": content}],
-        max_tokens=1500,
-        temperature=0.1,
-        timeout=30,
-    )
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": content}],
+                max_tokens=1500,
+                temperature=0.1,
+                timeout=45,
+            )
 
-    raw = response.choices[0].message.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1]
-        if raw.endswith("```"):
-            raw = raw[:-3]
-        raw = raw.strip()
+            raw = (response.choices[0].message.content or "").strip()
+            if not raw:
+                raise ValueError(f"Empty response from GPT-4o (attempt {attempt + 1})")
 
-    result = json.loads(raw)
-    return result
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+
+            return json.loads(raw)
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            if attempt < 2:
+                import time
+                time.sleep(1)
+                continue
+            raise
+
+    raise last_error  # type: ignore[misc]

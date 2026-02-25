@@ -86,6 +86,17 @@ Analyze all provided document images together and return ONLY a valid JSON objec
 ## Evidence Annotations
 For EVERY field you examine on the document, create an evidence_annotation entry. This enables reviewers to see exactly what was found and where. Include at least entries for: full_name, date_of_birth, document_number, and any fields with discrepancies. The "location" should describe where on the physical document the data appears.
 
+## Non-ID Document Handling
+If the uploaded image is NOT a valid government-issued identity document (e.g. it's a random photo, a text document, a screenshot, a meme, a blank page, a receipt, or any non-ID image), you MUST still return the full JSON structure. Set:
+- risk_score to 1.0
+- risk_level to "high"
+- confidence_score to 0.95
+- extracted_data fields to null or "N/A"
+- Add a critical flag: "Uploaded file is not a valid identity document"
+- explanation should describe what the image actually appears to be
+
+ALWAYS return the JSON regardless of what the image contains. Never refuse or return empty.
+
 Return ONLY the JSON object, no additional text."""
 
 
@@ -146,29 +157,45 @@ def analyze_document(
         content.append({"type": "text", "text": f"Document {i + 1} of {len(document_paths)}:"})
         content.append(_prepare_image(Path(doc_path)))
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": content}],
-        max_tokens=2000,
-        temperature=0.1,
-        timeout=30,
-    )
+    import time as _time
 
-    content = response.choices[0].message.content.strip()
-    if content.startswith("```"):
-        content = content.split("\n", 1)[1]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": content}],
+                max_tokens=2000,
+                temperature=0.1,
+                timeout=45,
+            )
 
-    result = json.loads(content)
+            raw = (response.choices[0].message.content or "").strip()
+            if not raw:
+                raise ValueError(f"Empty response from GPT-4o (attempt {attempt + 1})")
 
-    required_fields = ["extracted_data", "risk_score", "risk_level", "confidence_score", "flags", "explanation"]
-    for field in required_fields:
-        if field not in result:
-            raise ValueError(f"Missing required field in AI response: {field}")
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
 
-    if result["confidence_score"] < 0.6:
-        result["risk_level"] = "high"
+            result = json.loads(raw)
 
-    return result
+            required_fields = ["extracted_data", "risk_score", "risk_level", "confidence_score", "flags", "explanation"]
+            for field in required_fields:
+                if field not in result:
+                    raise ValueError(f"Missing required field in AI response: {field}")
+
+            if result["confidence_score"] < 0.6:
+                result["risk_level"] = "high"
+
+            return result
+        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            last_error = e
+            if attempt < 2:
+                _time.sleep(1)
+                continue
+            raise
+
+    raise last_error  # type: ignore[misc]

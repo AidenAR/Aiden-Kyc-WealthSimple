@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.database import SessionLocal, init_db
 from app.models.application import Application, Job, ApplicationStatus
 from app.services.analyzer import analyze_document
-from app.services.voice_analyzer import analyze_voice
 from app.services.facial_match import compare_faces
 from app.services.regulatory import screen_application
 from app.services.storage import get_document_path
@@ -123,24 +122,14 @@ def process_job(db, job: Job):
                     "key_observations": [],
                 }
 
-        # Voice verification (if sample provided)
+        # Voice sample saved for future re-verification (no analysis at submission)
         if app.voice_sample_path:
-            try:
-                voice_path = str(get_document_path(app.voice_sample_path))
-                voice_result = analyze_voice(
-                    audio_path=voice_path,
-                    first_name=app.first_name,
-                    last_name=app.last_name,
-                )
-                app.voice_verification = voice_result
-                print(f"[Worker] Voice verification: {voice_result.get('verification_result', 'unknown')} (similarity={voice_result.get('passphrase_similarity', 0):.0%})")
-            except Exception as ve:
-                print(f"[Worker] Voice analysis failed (non-fatal): {ve}")
-                app.voice_verification = {
-                    "verification_result": "error",
-                    "explanation": f"Voice analysis failed: {str(ve)}",
-                    "anomalies": [],
-                }
+            app.voice_verification = {
+                "verification_result": "enrolled",
+                "explanation": "Voice sample enrolled as baseline for future re-verification.",
+                "anomalies": [],
+            }
+            print(f"[Worker] Voice sample enrolled for {app.email or app.id}")
 
         reg = screen_application(
             country=app.country,

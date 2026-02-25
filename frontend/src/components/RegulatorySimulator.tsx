@@ -121,7 +121,7 @@ export function RegulatorySimulator({ applicationId }: { applicationId: string }
                 className={cn(
                   'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
                   toggles[key]
-                    ? 'border-indigo-300 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-700'
+                    ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/30'
                     : 'border-border hover:bg-muted',
                 )}
               >
@@ -190,8 +190,8 @@ export function RegulatorySimulator({ applicationId }: { applicationId: string }
                   <p className="text-xs text-muted-foreground">Adjusted</p>
                   <p className={cn(
                     'text-lg font-bold',
-                    result.adjusted_risk_level === 'high' ? 'text-red-600' :
-                    result.adjusted_risk_level === 'medium' ? 'text-amber-600' : 'text-emerald-600',
+                    result.adjusted_risk_level === 'high' ? 'text-red-600 dark:text-red-400' :
+                    result.adjusted_risk_level === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400',
                   )}>
                     {result.adjusted_risk_score.toFixed(2)}
                   </p>
@@ -228,7 +228,7 @@ export function RegulatorySimulator({ applicationId }: { applicationId: string }
                     <div key={i} className="bg-muted rounded-lg p-2 text-xs">
                       <div className="flex justify-between">
                         <span className="font-medium text-foreground">{adj.factor}</span>
-                        <span className="text-red-600 font-mono">+{adj.boost.toFixed(2)}</span>
+                        <span className="text-red-600 dark:text-red-400 font-mono">+{adj.boost.toFixed(2)}</span>
                       </div>
                       <p className="text-muted-foreground mt-0.5">{adj.regulation}</p>
                     </div>

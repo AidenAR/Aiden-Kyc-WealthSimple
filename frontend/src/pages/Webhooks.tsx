@@ -58,7 +58,7 @@ export function Webhooks() {
           Wealthsimple Webhook Integration
         </h1>
         <p className="text-muted-foreground mt-1">
-          Simulates the bi-directional webhook API that would connect this KYC reviewer to Wealthsimple&apos;s platform
+          Simulates the bi-directional webhook API that would connect VeriFlow to Wealthsimple&apos;s platform
         </p>
       </div>
 
@@ -243,7 +243,7 @@ function SimulateIncoming({
         Simulate Incoming Webhook
       </h2>
       <p className="text-xs text-muted-foreground mb-4">
-        Trigger a mock Wealthsimple &rarr; KYC Reviewer webhook, simulating a client whose auto-verification failed
+        Trigger a mock Wealthsimple &rarr; VeriFlow webhook, simulating a client whose auto-verification failed
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
