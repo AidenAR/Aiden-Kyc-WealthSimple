@@ -67,12 +67,39 @@ def _facial_error_response(reason: str) -> dict:
         "match_result": "error",
         "similarity_score": 0.0,
         "confidence": 0.0,
+        "document_photo_quality": "unknown",
+        "selfie_quality": "unknown",
         "face_detected_in_document": False,
         "face_detected_in_selfie": False,
         "explanation": reason,
         "anomalies": [{"type": "invalid_image", "severity": "critical", "description": reason}],
         "key_observations": [],
     }
+
+
+def _parse_json_object(raw: str) -> dict:
+    raw = (raw or "").strip()
+    if not raw:
+        raise ValueError("Empty model response")
+
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else ""
+        if raw.endswith("```"):
+            raw = raw[:-3]
+        raw = raw.strip()
+
+    # First attempt: strict parse
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Fallback: extract the first JSON object in the text
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = raw[start : end + 1]
+            return json.loads(candidate)
+        raise
 
 
 def _prepare_image(path: Path) -> dict:
@@ -117,14 +144,25 @@ def compare_faces(
     document_path: str,
     selfie_path: str,
 ) -> dict:
-    """Compare the face on an ID document with a selfie using GPT-4o vision."""
+    """Compare the face on an ID document with a selfie using GPT-4o vision.
+
+    This function NEVER raises — it always returns a dict (either a real
+    result or a structured error response).
+    """
+    try:
+        return _compare_faces_inner(document_path, selfie_path)
+    except Exception as e:
+        return _facial_error_response(f"Unexpected error: {e}")
+
+
+def _compare_faces_inner(document_path: str, selfie_path: str) -> dict:
     doc_path = Path(document_path)
     sel_path = Path(selfie_path)
 
     if not doc_path.exists():
-        raise FileNotFoundError(f"Document not found: {document_path}")
+        return _facial_error_response(f"Document not found: {document_path}")
     if not sel_path.exists():
-        raise FileNotFoundError(f"Selfie not found: {selfie_path}")
+        return _facial_error_response(f"Selfie not found: {selfie_path}")
 
     try:
         doc_image = _prepare_image(doc_path)
@@ -152,27 +190,22 @@ def compare_faces(
                 max_tokens=1500,
                 temperature=0.1,
                 timeout=45,
+                response_format={"type": "json_object"},
             )
 
             raw = (response.choices[0].message.content or "").strip()
             if not raw:
                 raise ValueError(f"Empty response from GPT-4o (attempt {attempt + 1})")
 
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[1]
-                if raw.endswith("```"):
-                    raw = raw[:-3]
-                raw = raw.strip()
-
-            return json.loads(raw)
+            return _parse_json_object(raw)
         except BadRequestError as e:
             return _facial_error_response(f"OpenAI rejected the image: {e}")
-        except (json.JSONDecodeError, ValueError) as e:
+        except Exception as e:
             last_error = e
             if attempt < 2:
                 import time
                 time.sleep(1)
                 continue
-            raise
+            return _facial_error_response(f"Facial comparison failed: {e}")
 
-    raise last_error  # type: ignore[misc]
+    return _facial_error_response(f"Facial comparison failed: {last_error}")

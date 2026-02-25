@@ -177,6 +177,12 @@ def process_job(db, job: Job):
                 print(f"[Worker] Facial comparison failed (non-fatal): {fe}")
                 app.facial_match = {
                     "match_result": "error",
+                    "similarity_score": 0.0,
+                    "confidence": 0.0,
+                    "document_photo_quality": "unknown",
+                    "selfie_quality": "unknown",
+                    "face_detected_in_document": False,
+                    "face_detected_in_selfie": False,
                     "explanation": f"Facial comparison failed: {str(fe)}",
                     "anomalies": [],
                     "key_observations": [],

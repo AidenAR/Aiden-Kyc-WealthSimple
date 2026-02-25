@@ -14,6 +14,7 @@ class ScreeningConfigUpdate(BaseModel):
     sanctions_programs: list[str] | None = None
     thresholds: dict | None = None
     boosts: dict | None = None
+    auto_approve: dict | None = None
 
 
 @router.get("/screening")

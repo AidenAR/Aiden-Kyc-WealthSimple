@@ -206,17 +206,12 @@ def analyze_document(
                 max_tokens=2000,
                 temperature=0.1,
                 timeout=45,
+                response_format={"type": "json_object"},
             )
 
             raw = (response.choices[0].message.content or "").strip()
             if not raw:
                 raise ValueError(f"Empty response from GPT-4o (attempt {attempt + 1})")
-
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[1]
-                if raw.endswith("```"):
-                    raw = raw[:-3]
-                raw = raw.strip()
 
             result = json.loads(raw)
 
@@ -236,6 +231,6 @@ def analyze_document(
             if attempt < 2:
                 _time.sleep(1)
                 continue
-            raise
+            return _invalid_document_response(f"AI response could not be parsed: {last_error}")
 
-    raise last_error  # type: ignore[misc]
+    return _invalid_document_response(f"AI analysis failed after retries: {last_error}")

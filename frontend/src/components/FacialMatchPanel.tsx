@@ -24,6 +24,10 @@ const SEVERITY_STYLES = {
 
 export function FacialMatchPanel({ data, selfieUrl }: { data: FacialMatch; selfieUrl?: string | null }) {
   const resultStyle = RESULT_STYLES[data.match_result] || RESULT_STYLES.error;
+  const similarityPct = Number.isFinite(data.similarity_score) ? `${(data.similarity_score * 100).toFixed(0)}%` : '—';
+  const confidencePct = Number.isFinite(data.confidence) ? `${(data.confidence * 100).toFixed(0)}%` : '—';
+  const docQuality = data.document_photo_quality ? String(data.document_photo_quality) : '—';
+  const selfieQuality = data.selfie_quality ? String(data.selfie_quality) : '—';
 
   return (
     <div className="bg-card rounded-xl border border-border p-5">
@@ -50,19 +54,19 @@ export function FacialMatchPanel({ data, selfieUrl }: { data: FacialMatch; selfi
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground">{(data.similarity_score * 100).toFixed(0)}%</p>
+          <p className="text-lg font-bold text-foreground">{similarityPct}</p>
           <p className="text-[10px] text-muted-foreground">Similarity</p>
         </div>
         <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground">{(data.confidence * 100).toFixed(0)}%</p>
+          <p className="text-lg font-bold text-foreground">{confidencePct}</p>
           <p className="text-[10px] text-muted-foreground">Confidence</p>
         </div>
         <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground capitalize">{data.document_photo_quality}</p>
+          <p className="text-lg font-bold text-foreground capitalize">{docQuality}</p>
           <p className="text-[10px] text-muted-foreground">Doc Photo</p>
         </div>
         <div className="text-center p-3 bg-muted/50 rounded-lg">
-          <p className="text-lg font-bold text-foreground capitalize">{data.selfie_quality}</p>
+          <p className="text-lg font-bold text-foreground capitalize">{selfieQuality}</p>
           <p className="text-[10px] text-muted-foreground">Selfie</p>
         </div>
       </div>
