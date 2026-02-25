@@ -11,6 +11,7 @@ import {
   LogOut,
   Settings,
   Webhook,
+  Key,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
@@ -20,6 +21,7 @@ const adminNav = [
   { to: '/', label: 'Submit', icon: Upload },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/audit-log', label: 'Audit Log', icon: ScrollText },
+  { to: '/api-keys', label: 'API', icon: Key },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/webhooks', label: 'Webhooks', icon: Webhook },
 ];

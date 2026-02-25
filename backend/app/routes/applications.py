@@ -1,4 +1,6 @@
-from datetime import datetime, timezone
+import hashlib
+import re
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -51,6 +53,23 @@ async def submit_application(
     if not check_rate_limit(client_ip):
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
+    if not first_name.strip():
+        raise HTTPException(status_code=400, detail="First name is required")
+    if not last_name.strip():
+        raise HTTPException(status_code=400, detail="Last name is required")
+
+    try:
+        dob = date.fromisoformat(date_of_birth)
+        if dob > date.today():
+            raise HTTPException(status_code=400, detail="Date of birth cannot be in the future")
+        if dob.year < 1900:
+            raise HTTPException(status_code=400, detail="Invalid date of birth")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    if email and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+
     if document_type not in ("drivers_license", "passport", "national_id"):
         raise HTTPException(status_code=400, detail="Invalid document type")
 
@@ -60,10 +79,15 @@ async def submit_application(
         raise HTTPException(status_code=400, detail="Maximum 5 documents per application")
 
     doc_filenames: list[str] = []
+    first_doc_hash: str | None = None
     for doc in documents:
         doc_bytes = await doc.read()
+        if len(doc_bytes) == 0:
+            raise HTTPException(status_code=400, detail=f"File '{doc.filename}' is empty")
         if len(doc_bytes) > storage.MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail=f"File '{doc.filename}' exceeds {storage.MAX_FILE_SIZE // (1024*1024)} MB limit")
+        if first_doc_hash is None:
+            first_doc_hash = hashlib.sha256(doc_bytes).hexdigest()
         try:
             filename = storage.save_document(doc_bytes, doc.filename or "document.jpg")
             doc_filenames.append(filename)
@@ -87,6 +111,14 @@ async def submit_application(
             except ValueError:
                 pass
 
+    duplicate_warning: str | None = None
+    if first_doc_hash:
+        existing = db.query(Application).filter(
+            Application.document_hash == first_doc_hash
+        ).first()
+        if existing:
+            duplicate_warning = f"Document may be a duplicate of application {existing.id}"
+
     app = Application(
         email=email or None,
         first_name=first_name,
@@ -96,6 +128,7 @@ async def submit_application(
         country=country,
         document_type=document_type,
         document_paths=doc_filenames,
+        document_hash=first_doc_hash,
         selfie_path=selfie_filename,
         voice_sample_path=voice_filename,
         status=ApplicationStatus.SUBMITTED.value,
@@ -115,7 +148,10 @@ async def submit_application(
         details={"document_type": document_type, "document_count": len(doc_filenames), "has_voice_sample": voice_filename is not None},
     )
 
-    return {"id": app.id, "status": app.status, "message": "Application submitted successfully"}
+    response = {"id": app.id, "status": app.status, "message": "Application submitted successfully"}
+    if duplicate_warning:
+        response["warning"] = duplicate_warning
+    return response
 
 
 @router.get("", response_model=ApplicationListResponse)
@@ -316,9 +352,22 @@ def reprocess_application(
     return {"id": app.id, "status": app.status, "message": "Sent for reprocessing"}
 
 
+def _check_file_access(app: Application | None, current_user: User | None) -> None:
+    """Ensure the current user has access to this application's files."""
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if current_user and current_user.role != "admin" and app.email != current_user.email:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+
 @router.get("/{application_id}/voice")
-def get_voice_sample(application_id: str, db: Session = Depends(get_db)):
+def get_voice_sample(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     app = db.query(Application).filter(Application.id == application_id).first()
+    _check_file_access(app, current_user)
     if not app or not app.voice_sample_path:
         raise HTTPException(status_code=404, detail="Voice sample not found")
     try:
@@ -329,8 +378,13 @@ def get_voice_sample(application_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{application_id}/selfie")
-def get_selfie(application_id: str, db: Session = Depends(get_db)):
+def get_selfie(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     app = db.query(Application).filter(Application.id == application_id).first()
+    _check_file_access(app, current_user)
     if not app or not app.selfie_path:
         raise HTTPException(status_code=404, detail="Selfie not found")
     try:
@@ -341,8 +395,14 @@ def get_selfie(application_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{application_id}/document/{doc_index}")
-def get_document(application_id: str, doc_index: int, db: Session = Depends(get_db)):
+def get_document(
+    application_id: str,
+    doc_index: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
+):
     app = db.query(Application).filter(Application.id == application_id).first()
+    _check_file_access(app, current_user)
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
     paths = app.document_paths or []

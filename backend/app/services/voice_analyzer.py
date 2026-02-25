@@ -10,7 +10,7 @@ Flow:
 import os
 import json
 from pathlib import Path
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
@@ -107,6 +107,24 @@ def get_expected_passphrase(first_name: str, last_name: str) -> str:
     return PASSPHRASE_TEMPLATE.format(first_name=first_name, last_name=last_name)
 
 
+def _voice_error_response(expected: str, reason: str, transcription: str = "") -> dict:
+    """Structured error result when voice processing fails."""
+    return {
+        "passphrase_match": False,
+        "passphrase_similarity": 0.0,
+        "transcription": transcription,
+        "expected_passphrase": expected,
+        "spoken_name": None,
+        "name_matches_claim": False,
+        "audio_quality": "poor",
+        "confidence": 0.0,
+        "language_detected": "unknown",
+        "anomalies": [{"type": "processing_error", "severity": "critical", "description": reason}],
+        "verification_result": "fail",
+        "explanation": reason,
+    }
+
+
 def analyze_voice(
     audio_path: str,
     first_name: str,
@@ -119,34 +137,22 @@ def analyze_voice(
 
     expected = get_expected_passphrase(first_name, last_name)
 
-    with open(path, "rb") as f:
-        transcript_response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f,
-            response_format="text",
-        )
+    try:
+        with open(path, "rb") as f:
+            transcript_response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="text",
+            )
+    except BadRequestError as e:
+        return _voice_error_response(expected, f"Audio file rejected by transcription service: {e}")
+    except Exception as e:
+        return _voice_error_response(expected, f"Failed to transcribe audio: {e}")
 
     transcription = transcript_response.strip() if isinstance(transcript_response, str) else str(transcript_response).strip()
 
     if not transcription:
-        return {
-            "passphrase_match": False,
-            "passphrase_similarity": 0.0,
-            "transcription": "",
-            "expected_passphrase": expected,
-            "spoken_name": None,
-            "name_matches_claim": False,
-            "audio_quality": "poor",
-            "confidence": 0.0,
-            "language_detected": "unknown",
-            "anomalies": [{
-                "type": "unclear_speech",
-                "severity": "critical",
-                "description": "No speech detected in the audio recording.",
-            }],
-            "verification_result": "fail",
-            "explanation": "No speech could be detected in the submitted voice sample.",
-        }
+        return _voice_error_response(expected, "No speech could be detected in the submitted voice sample.")
 
     prompt = VOICE_ANALYSIS_PROMPT.format(
         expected_passphrase=expected,
@@ -155,22 +161,31 @@ def analyze_voice(
         last_name=last_name,
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000,
-        temperature=0.1,
-        timeout=20,
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            temperature=0.1,
+            timeout=20,
+        )
 
-    content = response.choices[0].message.content.strip()
-    if content.startswith("```"):
-        content = content.split("\n", 1)[1]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            return _voice_error_response(expected, "Empty response from voice analysis", transcription=transcription)
 
-    result = json.loads(content)
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+
+        result = json.loads(content)
+    except BadRequestError as e:
+        return _voice_error_response(expected, f"Voice analysis request rejected: {e}", transcription=transcription)
+    except (json.JSONDecodeError, ValueError, AttributeError) as e:
+        return _voice_error_response(expected, f"Failed to parse voice analysis response: {e}", transcription=transcription)
+
     result["transcription"] = transcription
     result["expected_passphrase"] = expected
 
@@ -178,13 +193,17 @@ def analyze_voice(
 
 
 def _transcribe(audio_path: str) -> str:
-    with open(audio_path, "rb") as f:
-        resp = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f,
-            response_format="text",
-        )
-    return resp.strip() if isinstance(resp, str) else str(resp).strip()
+    """Transcribe an audio file. Returns empty string on any failure."""
+    try:
+        with open(audio_path, "rb") as f:
+            resp = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="text",
+            )
+        return resp.strip() if isinstance(resp, str) else str(resp).strip()
+    except Exception:
+        return ""
 
 
 def compare_voices(
@@ -227,22 +246,45 @@ def compare_voices(
         last_name=last_name,
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000,
-        temperature=0.1,
-        timeout=20,
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+            temperature=0.1,
+            timeout=20,
+        )
 
-    content = response.choices[0].message.content.strip()
-    if content.startswith("```"):
-        content = content.split("\n", 1)[1]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+        content = (response.choices[0].message.content or "").strip()
+        if not content:
+            return {
+                "same_speaker_likelihood": 0.0,
+                "match_result": "error",
+                "enrollment_transcription": enrollment_text,
+                "new_transcription": new_text,
+                "confidence": 0.0,
+                "anomalies": [{"type": "processing_error", "severity": "critical", "description": "Empty response from voice comparison service"}],
+                "explanation": "Voice comparison failed — empty AI response.",
+            }
 
-    result = json.loads(content)
+        if content.startswith("```"):
+            content = content.split("\n", 1)[1]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+
+        result = json.loads(content)
+    except (BadRequestError, json.JSONDecodeError, ValueError, AttributeError) as e:
+        return {
+            "same_speaker_likelihood": 0.0,
+            "match_result": "error",
+            "enrollment_transcription": enrollment_text,
+            "new_transcription": new_text,
+            "confidence": 0.0,
+            "anomalies": [{"type": "processing_error", "severity": "critical", "description": f"Voice comparison failed: {e}"}],
+            "explanation": f"Voice comparison could not be completed: {e}",
+        }
+
     result["enrollment_transcription"] = enrollment_text
     result["new_transcription"] = new_text
     return result

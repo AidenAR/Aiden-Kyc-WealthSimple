@@ -2,9 +2,25 @@ import os
 import json
 import base64
 from pathlib import Path
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+
+
+def _invalid_document_response(reason: str) -> dict:
+    """Structured error response for documents that can't be processed at all."""
+    return {
+        "extracted_data": {"full_name": None, "date_of_birth": None, "document_number": None, "expiry_date": None, "issuing_authority": None},
+        "document_quality": {"overall_quality": "poor", "is_blurry": False, "is_cropped": False, "resolution_adequate": False, "issues": [reason]},
+        "cross_reference_results": {"name_match": False, "dob_match": False},
+        "risk_score": 1.0,
+        "risk_level": "high",
+        "confidence_score": 0.95,
+        "flags": [{"description": reason, "severity": "critical", "field": "document"}],
+        "evidence_annotations": [],
+        "explanation": f"The uploaded file could not be processed: {reason}. This may indicate a corrupt file, wrong file type, or an intentional evasion attempt.",
+    }
+
 
 ANALYSIS_PROMPT = """You are an expert KYC (Know Your Customer) document analyst for a financial institution.
 
@@ -105,22 +121,41 @@ def _pdf_to_image_bytes(pdf_path: Path) -> tuple[bytes, str]:
     import fitz  # PyMuPDF
 
     doc = fitz.open(str(pdf_path))
+    if len(doc) == 0:
+        doc.close()
+        raise ValueError("PDF has no pages")
     page = doc[0]
     pix = page.get_pixmap(dpi=200)
     img_bytes = pix.tobytes("jpeg")
     doc.close()
+    if not img_bytes:
+        raise ValueError("PDF page rendered to empty image")
     return img_bytes, "image/jpeg"
 
 
 def _prepare_image(doc_path: Path) -> dict:
-    """Convert a document path into an OpenAI image_url content block."""
+    """Convert a document path into an OpenAI image_url content block.
+
+    Raises ValueError if the file is missing, empty, or corrupt so the caller
+    can fall back to a structured error response instead of crashing.
+    """
+    if not doc_path.exists():
+        raise ValueError(f"File not found: {doc_path}")
+
     ext = doc_path.suffix.lower()
-    if ext == ".pdf":
-        image_bytes, mime_type = _pdf_to_image_bytes(doc_path)
-    else:
-        image_bytes = doc_path.read_bytes()
-        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-        mime_type = mime_map.get(ext, "image/jpeg")
+    try:
+        if ext == ".pdf":
+            image_bytes, mime_type = _pdf_to_image_bytes(doc_path)
+        else:
+            image_bytes = doc_path.read_bytes()
+            if not image_bytes:
+                raise ValueError("File is empty (0 bytes)")
+            mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+            mime_type = mime_map.get(ext, "image/jpeg")
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Cannot read file {doc_path.name}: {e}")
 
     base64_image = base64.b64encode(image_bytes).decode("utf-8")
     return {
@@ -155,7 +190,10 @@ def analyze_document(
 
     for i, doc_path in enumerate(document_paths):
         content.append({"type": "text", "text": f"Document {i + 1} of {len(document_paths)}:"})
-        content.append(_prepare_image(Path(doc_path)))
+        try:
+            content.append(_prepare_image(Path(doc_path)))
+        except ValueError as img_err:
+            return _invalid_document_response(f"Document {i + 1} could not be loaded: {img_err}")
 
     import time as _time
 
@@ -191,6 +229,8 @@ def analyze_document(
                 result["risk_level"] = "high"
 
             return result
+        except BadRequestError as e:
+            return _invalid_document_response(f"Not a valid image format: {e}")
         except (json.JSONDecodeError, ValueError, AttributeError) as e:
             last_error = e
             if attempt < 2:

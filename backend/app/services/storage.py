@@ -48,13 +48,16 @@ def save_document(file_bytes: bytes, filename: str) -> str:
 
 
 def _resize_if_needed(file_bytes: bytes) -> bytes:
-    img = Image.open(io.BytesIO(file_bytes))
-    if max(img.size) > MAX_IMAGE_DIMENSION:
-        img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
-        buffer = io.BytesIO()
-        fmt = img.format or "JPEG"
-        img.save(buffer, format=fmt, quality=85)
-        return buffer.getvalue()
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        if max(img.size) > MAX_IMAGE_DIMENSION:
+            img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
+            buffer = io.BytesIO()
+            fmt = img.format or "JPEG"
+            img.save(buffer, format=fmt, quality=85)
+            return buffer.getvalue()
+    except Exception:
+        pass
     return file_bytes
 
 

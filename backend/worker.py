@@ -80,21 +80,31 @@ def process_job(db, job: Job):
     db.commit()
 
     try:
-        doc_paths = [str(get_document_path(p)) for p in (app.document_paths or [])]
+        doc_paths = []
+        for p in (app.document_paths or []):
+            try:
+                doc_paths.append(str(get_document_path(p)))
+            except FileNotFoundError:
+                print(f"[Worker] Warning: document file missing: {p}")
+
         if not doc_paths:
             raise ValueError("No documents found for this application")
+
         result = analyze_document(
             document_paths=doc_paths,
-            first_name=app.first_name,
-            last_name=app.last_name,
-            date_of_birth=app.date_of_birth,
-            address=app.address,
-            country=app.country,
-            document_type=app.document_type,
+            first_name=app.first_name or "",
+            last_name=app.last_name or "",
+            date_of_birth=app.date_of_birth or "",
+            address=app.address or "",
+            country=app.country or "",
+            document_type=app.document_type or "",
         )
 
-        app.confidence_score = result["confidence_score"]
-        app.ai_explanation = result["explanation"]
+        try:
+            app.confidence_score = float(result.get("confidence_score", 0))
+        except (TypeError, ValueError):
+            app.confidence_score = 0.0
+        app.ai_explanation = str(result.get("explanation", "")) or None
         app.extracted_data = result.get("extracted_data")
         app.flags = result.get("flags")
         app.cross_reference_results = result.get("cross_reference_results")
@@ -131,16 +141,21 @@ def process_job(db, job: Job):
             }
             print(f"[Worker] Voice sample enrolled for {app.email or app.id}")
 
+        try:
+            risk_score = float(result.get("risk_score", 0.5))
+        except (TypeError, ValueError):
+            risk_score = 0.5
+
         reg = screen_application(
-            country=app.country,
-            risk_score=result["risk_score"],
-            risk_level=result["risk_level"],
-            confidence_score=result["confidence_score"],
+            country=app.country or "",
+            risk_score=risk_score,
+            risk_level=result.get("risk_level", "medium"),
+            confidence_score=app.confidence_score or 0.0,
             cross_reference_results=result.get("cross_reference_results"),
             document_quality=result.get("document_quality"),
             flags=result.get("flags"),
-            first_name=app.first_name,
-            last_name=app.last_name,
+            first_name=app.first_name or "",
+            last_name=app.last_name or "",
         )
 
         app.risk_score = reg["adjusted_risk_score"]
@@ -153,30 +168,32 @@ def process_job(db, job: Job):
         job.completed_at = datetime.now(timezone.utc)
         db.commit()
 
-        reg_count = len(reg["regulatory_flags"])
+        reg_count = len(reg.get("regulatory_flags", []))
         audit.log_event(
             db,
             action="ai_analysis_completed",
             actor="ai_system",
             application_id=app.id,
             details={
-                "ai_risk_score": result["risk_score"],
-                "ai_risk_level": result["risk_level"],
+                "ai_risk_score": risk_score,
+                "ai_risk_level": result.get("risk_level", "unknown"),
                 "final_risk_score": reg["adjusted_risk_score"],
                 "final_risk_level": reg["adjusted_risk_level"],
-                "confidence_score": result["confidence_score"],
-                "flag_count": len(result.get("flags", [])),
+                "confidence_score": app.confidence_score,
+                "flag_count": len(result.get("flags") or []),
                 "regulatory_flags": reg_count,
-                "regulatory_priority": reg["priority"],
+                "regulatory_priority": reg.get("priority", "standard"),
             },
         )
 
         adj_note = ""
-        if reg["adjustments_applied"]:
-            factors = [a["factor"] for a in reg["adjustments_applied"]]
-            adj_note = f" | regulatory adjustments: {', '.join(factors)}"
+        for a in reg.get("adjustments_applied") or []:
+            factor = a.get("factor", "unknown") if isinstance(a, dict) else str(a)
+            adj_note += f", {factor}"
+        if adj_note:
+            adj_note = f" | regulatory adjustments: {adj_note[2:]}"
 
-        print(f"[Worker] Completed: {app.id} | risk={reg['adjusted_risk_level']} score={reg['adjusted_risk_score']:.2f} confidence={result['confidence_score']:.2f} priority={reg['priority']}{adj_note}")
+        print(f"[Worker] Completed: {app.id} | risk={reg['adjusted_risk_level']} score={reg['adjusted_risk_score']:.2f} confidence={app.confidence_score:.2f} priority={reg.get('priority', 'standard')}{adj_note}")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"

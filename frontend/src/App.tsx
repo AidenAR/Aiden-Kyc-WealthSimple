@@ -10,6 +10,7 @@ import { ApplicantDashboard } from '@/pages/ApplicantDashboard';
 import { AuditLog } from '@/pages/AuditLog';
 import { Settings } from '@/pages/Settings';
 import { Webhooks } from '@/pages/Webhooks';
+import { ApiKeys } from '@/pages/ApiKeys';
 import { ApplicationDetailRouter } from './components/ApplicationDetailRouter';
 import { Loader2 } from 'lucide-react';
 
@@ -54,6 +55,7 @@ function AppRoutes() {
           <Route path="/audit-log" element={<AdminRoute><AuditLog /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><Settings /></AdminRoute>} />
           <Route path="/webhooks" element={<AdminRoute><Webhooks /></AdminRoute>} />
+          <Route path="/api-keys" element={<AdminRoute><ApiKeys /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

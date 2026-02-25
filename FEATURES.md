@@ -226,13 +226,105 @@ Simulates the bi-directional webhook API that would connect this tool to Wealths
 
 ---
 
+## Public REST API (`/api/v1/`)
+
+VeriFlow exposes a fully documented REST API for programmatic identity verification, enabling integration with any platform.
+
+### Authentication
+
+API key-based authentication via the `X-API-Key` header. Keys are managed by admins through the UI or API.
+
+```bash
+curl -X POST /api/v1/verify \
+  -H "X-API-Key: vf_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "John",
+    "last_name": "Doe",
+    "date_of_birth": "1990-01-15",
+    "address": "123 Main St, Toronto, ON",
+    "country": "Canada",
+    "document_type": "passport",
+    "document_base64": "<base64 encoded image>",
+    "selfie_base64": "<base64 encoded image>"
+  }'
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/verify` | Submit a verification request (returns 202 with ID) |
+| `GET` | `/api/v1/status/{id}` | Poll for verification results |
+| `GET` | `/api/v1/verifications` | List all verifications (filterable by status, email) |
+
+### API Key Management (`/api/api-keys`)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/api-keys` | Generate a new API key (admin only) |
+| `GET` | `/api/api-keys` | List active API keys |
+| `DELETE` | `/api/api-keys/{id}` | Revoke an API key |
+
+Keys use SHA-256 hashing — the raw key is only shown once at creation. Each key tracks last usage time.
+
+### API Keys Admin UI (`/api-keys`)
+
+- Create and name API keys
+- One-time key reveal with copy-to-clipboard
+- Quick start guide with curl examples and endpoint reference
+- View active keys with creation/last-used timestamps
+- Revoke keys with confirmation
+
+---
+
+## Input Validation & Security
+
+### Server-Side Validation
+- **Date of birth** — rejects future dates and dates before 1900
+- **Email format** — regex validation when provided
+- **Name fields** — rejects blank/whitespace-only names
+- **Empty file rejection** — documents with 0 bytes are rejected with a clear error
+- **File type validation** — only allowed extensions (JPG, PNG, WebP, PDF, audio formats)
+- **File size limit** — 5 MB per file enforced on both frontend and backend
+
+### Document Deduplication
+- SHA-256 hash computed for the first uploaded document
+- Hash stored on the application record and indexed for fast lookup
+- If a matching hash is found in an existing application, a warning is returned (submission still accepted)
+- Catches reuse of stolen or fake identity documents across submissions
+
+### Client-Side Validation
+- Date picker constrained to prevent future date selection
+- Required field indicators (red asterisks)
+- Progress stepper shows form completion status in real-time
+
+---
+
+## Authentication & Authorization
+
+### JWT-Based Auth
+- Registration and login with email/password
+- Passwords hashed with bcrypt
+- JWT tokens with 72-hour expiry
+- Role auto-assignment: `@reviewer.com` emails get admin role
+
+### Role-Based Access Control (Three Layers)
+1. **Frontend route guards** — admin routes (`/dashboard`, `/audit-log`, `/settings`, `/webhooks`, `/api-keys`) redirect non-admins to `/`
+2. **Backend API enforcement** — list endpoints scope non-admin queries to their own email; admin-only endpoints require `require_admin` dependency
+3. **React Query cache clearing** — login/logout clears cached data to prevent cross-user data leakage
+
+---
+
 ## Infrastructure
 
 - **Docker Compose** — `docker compose up --build` runs API, worker, and frontend as three containers with shared volumes
-- **Start script** — `./start.sh` for local development, boots all three processes with one command
-- **SQLite WAL mode** — concurrent reads from API and writes from worker without locking
+- **Railway deployment** — single container running both web server and worker process
+- **PostgreSQL** — production database (Railway plugin); SQLite fallback for local development
+- **Dual file storage** — documents saved to both disk (fast access) and PostgreSQL (survives redeployments)
 - **Auto-migration** — new columns added to existing databases automatically on startup
 - **Auto-generated API docs** — Swagger UI at `/docs` when the server is running
+- **Dark mode** — full dark theme support across all components
 
 ---
 
@@ -243,9 +335,10 @@ Simulates the bi-directional webhook API that would connect this tool to Wealths
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS v4 |
 | State Management | TanStack Query (3-second polling) |
 | Backend | Python 3.11+, FastAPI, SQLAlchemy 2.0 |
-| Job Queue | SQLite job table + standalone polling worker |
+| Job Queue | PostgreSQL/SQLite job table + standalone polling worker |
 | AI | OpenAI GPT-4o (vision + structured output), Whisper (voice transcription) |
-| Image Processing | Pillow (resize, format conversion) |
+| Image Processing | Pillow (resize), PyMuPDF (PDF conversion) |
+| Auth | JWT (python-jose), bcrypt |
 | Validation | Pydantic v2 |
-| Database | SQLite (WAL mode), swappable to PostgreSQL |
-| Containerization | Docker + Docker Compose |
+| Database | PostgreSQL (production), SQLite (local dev) |
+| Deployment | Docker, Railway |

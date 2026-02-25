@@ -66,6 +66,7 @@ class Application(Base):
     country: Mapped[str] = mapped_column(String(100))
     document_type: Mapped[str] = mapped_column(String(20))
     document_paths: Mapped[list] = mapped_column(JSON, default=list)
+    document_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     selfie_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     voice_sample_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     voice_verification: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -166,3 +167,17 @@ class StoredFile(Base):
     filename: Mapped[str] = mapped_column(String(255), primary_key=True)
     data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_gen_id)
+    name: Mapped[str] = mapped_column(String(200))
+    key_hash: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    key_prefix: Mapped[str] = mapped_column(String(10))
+    owner_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    scopes: Mapped[list] = mapped_column(JSON, default=lambda: ["verify"])

@@ -43,12 +43,11 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    if _is_sqlite:
-        _auto_migrate()
+    _auto_migrate()
 
 
 def _auto_migrate():
-    """Add columns that may be missing on older SQLite databases."""
+    """Add columns that may be missing on older databases (SQLite or PostgreSQL)."""
     migrations = [
         ("applications", "evidence_annotations", "TEXT"),
         ("applications", "regulatory_flags", "TEXT"),
@@ -57,18 +56,21 @@ def _auto_migrate():
         ("applications", "voice_sample_path", "TEXT"),
         ("applications", "voice_verification", "TEXT"),
         ("applications", "facial_match", "TEXT"),
+        ("applications", "document_hash", "VARCHAR(64)"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in migrations:
             try:
                 conn.execute(text(f"SELECT {column} FROM {table} LIMIT 1"))
             except Exception:
+                conn.rollback()
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
                 conn.commit()
 
-        conn.execute(text(
-            "UPDATE applications "
-            "SET email = LOWER(first_name || '.' || last_name || '@example.com') "
-            "WHERE email IS NULL"
-        ))
-        conn.commit()
+        if _is_sqlite:
+            conn.execute(text(
+                "UPDATE applications "
+                "SET email = LOWER(first_name || '.' || last_name || '@example.com') "
+                "WHERE email IS NULL"
+            ))
+            conn.commit()

@@ -1,11 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, CheckCircle, Loader2, X, Mic } from 'lucide-react';
+import { Upload, CheckCircle, Loader2, X, Mic, User, FileText, Camera, ShieldCheck } from 'lucide-react';
 import { submitApplication } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { WebcamCapture } from '@/components/WebcamCapture';
+import { cn } from '@/lib/utils';
 
 const DOCUMENT_TYPES = [
   { value: 'drivers_license', label: "Driver's License" },
@@ -25,6 +26,17 @@ export function SubmitApplication() {
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [dob, setDob] = useState('');
+  const [country, setCountry] = useState('');
+  const [address, setAddress] = useState('');
+  const [docType, setDocType] = useState('');
+
+  const steps = useMemo(() => [
+    { label: 'Personal Info', icon: User, done: !!(firstName && lastName && dob && country && address) },
+    { label: 'Document', icon: FileText, done: documentFiles.length > 0 && !!docType },
+    { label: 'Selfie', icon: Camera, done: !!selfieFile },
+    { label: 'Submit', icon: ShieldCheck, done: false },
+  ], [firstName, lastName, dob, country, address, documentFiles, docType, selfieFile]);
 
   function addDocumentFiles(files: FileList | null) {
     if (!files) return;
@@ -88,7 +100,7 @@ export function SubmitApplication() {
               View Application
             </button>
             <button
-              onClick={() => { setSubmitted(null); setDocumentFiles([]); setSelfieFile(null); }}
+              onClick={() => { setSubmitted(null); setDocumentFiles([]); setSelfieFile(null); setFirstName(''); setLastName(''); setDob(''); setCountry(''); setAddress(''); setDocType(''); setVoiceBlob(null); }}
               className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-muted transition"
             >
               Submit Another
@@ -106,6 +118,34 @@ export function SubmitApplication() {
         <p className="text-muted-foreground mt-1">
           Provide your personal information and upload an identity document for verification.
         </p>
+      </div>
+
+      <div className="flex items-center justify-between mb-6 bg-card rounded-xl border border-border p-4">
+        {steps.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div key={step.label} className="flex items-center gap-2 flex-1">
+              <div className={cn(
+                'flex items-center justify-center h-8 w-8 rounded-full shrink-0 transition-colors',
+                step.done ? 'bg-accent text-white dark:text-black' : 'bg-muted text-muted-foreground'
+              )}>
+                {step.done ? <CheckCircle className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              </div>
+              <span className={cn(
+                'text-xs font-medium hidden sm:inline',
+                step.done ? 'text-foreground' : 'text-muted-foreground'
+              )}>
+                {step.label}
+              </span>
+              {i < steps.length - 1 && (
+                <div className={cn(
+                  'flex-1 h-0.5 rounded-full ml-2',
+                  step.done ? 'bg-accent' : 'bg-border'
+                )} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border p-6 space-y-6">
@@ -153,6 +193,9 @@ export function SubmitApplication() {
               name="date_of_birth"
               type="date"
               required
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -161,6 +204,8 @@ export function SubmitApplication() {
             <input
               name="country"
               required
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="Canada"
             />
@@ -173,6 +218,8 @@ export function SubmitApplication() {
             name="address"
             required
             rows={2}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             placeholder="123 Main Street, Toronto, ON M5V 1A1"
           />
@@ -183,6 +230,8 @@ export function SubmitApplication() {
           <select
             name="document_type"
             required
+            value={docType}
+            onChange={(e) => setDocType(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select document type...</option>

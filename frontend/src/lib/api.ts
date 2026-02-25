@@ -328,3 +328,39 @@ export async function simulateOutgoingWebhook(applicationId: string): Promise<Re
     method: 'POST',
   });
 }
+
+// --- API Keys ---
+
+export interface ApiKeyInfo {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  is_active: boolean;
+  scopes: string[];
+}
+
+export interface CreateApiKeyResponse {
+  id: string;
+  name: string;
+  key: string;
+  prefix: string;
+  message: string;
+}
+
+export async function listApiKeys(): Promise<ApiKeyInfo[]> {
+  return request('/api-keys');
+}
+
+export async function createApiKey(name: string): Promise<CreateApiKeyResponse> {
+  return request('/api-keys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function revokeApiKey(id: string): Promise<{ message: string }> {
+  return request(`/api-keys/${id}`, { method: 'DELETE' });
+}

@@ -4,6 +4,7 @@ Compares the selfie photo with the photo on the identity document.
 """
 
 import os
+from openai import BadRequestError
 import json
 import base64
 from pathlib import Path
@@ -61,20 +62,50 @@ ALWAYS return the full JSON structure regardless of image content. Never refuse 
 Return ONLY the JSON object."""
 
 
+def _facial_error_response(reason: str) -> dict:
+    return {
+        "match_result": "error",
+        "similarity_score": 0.0,
+        "confidence": 0.0,
+        "face_detected_in_document": False,
+        "face_detected_in_selfie": False,
+        "explanation": reason,
+        "anomalies": [{"type": "invalid_image", "severity": "critical", "description": reason}],
+        "key_observations": [],
+    }
+
+
 def _prepare_image(path: Path) -> dict:
+    """Convert a file into an OpenAI image_url block. Raises ValueError on corrupt/missing/empty files."""
+    if not path.exists():
+        raise ValueError(f"File not found: {path}")
+
     ext = path.suffix.lower()
-    if ext == ".pdf":
-        import fitz  # PyMuPDF
-        doc = fitz.open(str(path))
-        page = doc[0]
-        pix = page.get_pixmap(dpi=200)
-        image_bytes = pix.tobytes("jpeg")
-        doc.close()
-        mime_type = "image/jpeg"
-    else:
-        image_bytes = path.read_bytes()
-        mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
-        mime_type = mime_map.get(ext, "image/jpeg")
+    try:
+        if ext == ".pdf":
+            import fitz  # PyMuPDF
+            doc = fitz.open(str(path))
+            if len(doc) == 0:
+                doc.close()
+                raise ValueError("PDF has no pages")
+            page = doc[0]
+            pix = page.get_pixmap(dpi=200)
+            image_bytes = pix.tobytes("jpeg")
+            doc.close()
+            if not image_bytes:
+                raise ValueError("PDF page rendered to empty image")
+            mime_type = "image/jpeg"
+        else:
+            image_bytes = path.read_bytes()
+            if not image_bytes:
+                raise ValueError("File is empty (0 bytes)")
+            mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+            mime_type = mime_map.get(ext, "image/jpeg")
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Cannot read file {path.name}: {e}")
+
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     return {
         "type": "image_url",
@@ -95,12 +126,21 @@ def compare_faces(
     if not sel_path.exists():
         raise FileNotFoundError(f"Selfie not found: {selfie_path}")
 
+    try:
+        doc_image = _prepare_image(doc_path)
+    except ValueError as e:
+        return _facial_error_response(f"Document image could not be loaded: {e}")
+    try:
+        sel_image = _prepare_image(sel_path)
+    except ValueError as e:
+        return _facial_error_response(f"Selfie image could not be loaded: {e}")
+
     content: list[dict] = [
         {"type": "text", "text": FACIAL_MATCH_PROMPT},
         {"type": "text", "text": "Image 1 — Identity Document:"},
-        _prepare_image(doc_path),
+        doc_image,
         {"type": "text", "text": "Image 2 — Applicant Selfie:"},
-        _prepare_image(sel_path),
+        sel_image,
     ]
 
     last_error = None
@@ -125,6 +165,8 @@ def compare_faces(
                 raw = raw.strip()
 
             return json.loads(raw)
+        except BadRequestError as e:
+            return _facial_error_response(f"OpenAI rejected the image: {e}")
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
             if attempt < 2:
