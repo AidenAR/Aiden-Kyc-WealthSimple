@@ -1,6 +1,11 @@
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
 from app.routes import applications, audit, stats, feedback, simulator, demo, config, voice, webhooks
@@ -41,3 +46,18 @@ app.include_router(webhooks.router)
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy"}
+
+
+# --- Serve built frontend (production only) ---
+STATIC_DIR = Path(__file__).parent.parent / "static"
+
+if STATIC_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(STATIC_DIR / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(request: Request, full_path: str):
+        """Serve the SPA — any non-API, non-asset path returns index.html."""
+        file_path = STATIC_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(STATIC_DIR / "index.html"))

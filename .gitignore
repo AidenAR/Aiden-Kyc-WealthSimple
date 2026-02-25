@@ -3,8 +3,12 @@
 __pycache__/
 backend/venv/
 backend/kyc.db
+backend/kyc.db-wal
+backend/kyc.db-shm
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/.env
+backend/screening_config.json
+backend/webhook_config.json
 frontend/node_modules/
 frontend/dist/
