@@ -8,7 +8,7 @@ See [FEATURES.md](FEATURES.md) for a complete feature breakdown.
 
 ## Live Demo
 
-> **[https://your-app.up.railway.app](https://veriflow-production-c29e.up.railway.app/)
+> **[LIVE VeriFlow](https://veriflow-production-c29e.up.railway.app/)**
 
 ## Quick Start
 
