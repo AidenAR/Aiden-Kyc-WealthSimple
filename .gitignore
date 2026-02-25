@@ -1,0 +1,10 @@
+.DS_Store
+*.pyc
+__pycache__/
+backend/venv/
+backend/kyc.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/.env
+frontend/node_modules/
+frontend/dist/

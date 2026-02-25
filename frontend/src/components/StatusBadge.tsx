@@ -1,0 +1,26 @@
+import { cn } from '@/lib/utils';
+import { statusLabel } from '@/lib/utils';
+import type { ApplicationStatus } from '@/types';
+
+const statusStyles: Record<string, string> = {
+  submitted: 'bg-blue-100 text-blue-800',
+  processing: 'bg-indigo-100 text-indigo-800',
+  processing_failed: 'bg-red-100 text-red-800',
+  pending_review: 'bg-amber-100 text-amber-800',
+  approved: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-800',
+  needs_info: 'bg-purple-100 text-purple-800',
+};
+
+export function StatusBadge({ status }: { status: ApplicationStatus }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
+        statusStyles[status] || 'bg-gray-100 text-gray-800'
+      )}
+    >
+      {statusLabel(status)}
+    </span>
+  );
+}

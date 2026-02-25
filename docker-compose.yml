@@ -1,0 +1,39 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - db_data:/app/data
+      - uploads:/app/uploads
+    environment:
+      - DATABASE_URL=sqlite:////app/data/kyc.db
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["python", "-u", "worker.py"]
+    env_file:
+      - ./backend/.env
+    volumes:
+      - db_data:/app/data
+      - uploads:/app/uploads
+    environment:
+      - DATABASE_URL=sqlite:////app/data/kyc.db
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  uploads:
