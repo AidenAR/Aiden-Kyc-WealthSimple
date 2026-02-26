@@ -304,7 +304,7 @@ Keys use SHA-256 hashing — the raw key is only shown once at creation. Each ke
 - Registration and login with email/password
 - Passwords hashed with bcrypt
 - JWT tokens with 72-hour expiry
-- Role auto-assignment: `@reviewer.com` emails get admin role
+- Role auto-assignment: `@reviewer.com` and `@wealthsimple.*` emails get admin role (case-insensitive)
 
 ### Role-Based Access Control (Four Layers)
 1. **Frontend route guards** — admin routes (`/dashboard`, `/audit-log`, `/settings`, `/webhooks`, `/api-keys`) redirect non-admins to `/`

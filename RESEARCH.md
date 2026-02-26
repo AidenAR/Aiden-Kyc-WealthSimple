@@ -81,8 +81,8 @@ KYC onboarding is a known conversion killer:
 
 | Statistic | Source |
 |---|---|
-| **38%** of customers abandon account opening during KYC | [FullCircl 2025 Report](https://fullcircl.com/press-release/fullcircl-releases-2025-state-of-identity-verification-report) |
-| **53%** abandon because they feel uncomfortable with the IDV process | FullCircl 2025 |
+| **38%** of customers abandon account opening during KYC | [FullCircl 2025 Report](https://regtechanalyst.com/fullcircl-unveils-2025-identity-verification-challenges-and-opportunities/) |
+| **59%** abandon because they feel uncomfortable with the IDV process | FullCircl 2025 |
 | **68%** abandon due to friction (unclear instructions, upload failures) | [Ondato Best Practices](https://ondato.com/blog/identity-verification-best-practices/) |
 | Average onboarding takes **35 minutes** — 2.8x longer than customers prefer | FullCircl 2025 |
 | **98%** of firms grossly misjudge their actual drop-off levels | FullCircl 2025 |
@@ -117,7 +117,7 @@ For the compliance officer experience, VeriFlow applies domain-specific UX patte
 
 | Decision | Rationale |
 |---|---|
-| Email-based role assignment (`@reviewer.com` = admin) | Eliminates role selection confusion; prevents applicants from accidentally choosing "admin" |
+| Email-based role assignment (`@reviewer.com` or `@wealthsimple.*` = admin) | Eliminates role selection confusion; prevents applicants from accidentally choosing "admin" |
 | No email verification required | Reduces friction for a take-home demo; in production, would add email confirmation |
 | JWT with 72-hour expiry | Balance between security and "don't make me log in every day" |
 
@@ -157,9 +157,11 @@ For the compliance officer experience, VeriFlow applies domain-specific UX patte
 
 | Scenario | Current Behavior | Severity |
 |---|---|---|
-| **Upload a 0-byte file as document** | Backend accepts (no empty check on documents, only selfie) | Medium — AI would fail on empty image |
-| **Submit with future date of birth** | Accepted — no date validation | Low — AI flags age discrepancy |
-| **Non-UTF8 characters in name** | Should work (Python/Postgres handle Unicode) | Low |
+| **Upload a 0-byte file as document** | Server rejects empty files with a clear error message; worker also handles gracefully with structured error response | **Mitigated** |
+| **Submit with future date of birth** | Server-side validation rejects future dates and dates before 1900; client-side `max` attribute prevents selection | **Mitigated** |
+| **Non-UTF8 characters in name** | Works — Python/Postgres handle Unicode natively | Low |
+| **Blank/whitespace-only names** | Server rejects with validation error | **Mitigated** |
+| **Invalid email format** | Server-side regex validation rejects malformed emails | **Mitigated** |
 | **Multiple rapid submissions for same email** | Rate limiter catches per-IP, but same user could submit from multiple IPs | Low |
 | **OpenAI API key expires/invalid** | Worker retries 3x then marks as failed | Medium — no admin alert |
 | **Very large PDF (many pages)** | Only first page analyzed; PyMuPDF handles it | Low — but could miss relevant pages |
@@ -168,18 +170,21 @@ For the compliance officer experience, VeriFlow applies domain-specific UX patte
 | **CORS not explicitly configured** | FastAPI serves frontend from same origin, so CORS isn't needed currently | Low — becomes an issue if frontend is hosted separately |
 | **No CSRF protection** | JWT in Authorization header (not cookies), so CSRF doesn't apply | N/A |
 | **Uploaded file names with path traversal** | UUID-based renaming prevents this | Safe |
+| **Corrupt/invalid image uploads** | Pillow and PyMuPDF errors caught gracefully; worker returns structured "invalid document" response instead of crashing | **Mitigated** |
+| **Non-ID documents (memes, receipts, etc.)** | AI instructed to return high-risk structured response; never refuses or returns empty | **Mitigated** |
 
 ### 4.2 AI-Specific Edge Cases
 
 | Scenario | Current Behavior | Risk |
 |---|---|---|
 | **GPT-4o hallucinates extracted data** | No ground-truth validation; whatever GPT-4o returns is displayed | Medium — reviewer sees AI output as authoritative |
-| **GPT-4o returns invalid JSON** | Retry 3x with 1s backoff, then fail | Handled |
-| **GPT-4o returns null content** | Handled with `(content or "").strip()` and retry | Handled |
+| **GPT-4o returns invalid JSON** | `response_format={"type": "json_object"}` forces valid JSON output; fallback parser extracts JSON from mixed text; retries 3x | **Mitigated** |
+| **GPT-4o returns null content** | Handled with `(content or "").strip()` and retry; function always returns structured error, never raises | **Mitigated** |
+| **OpenAI rejects image (BadRequestError)** | Caught explicitly; returns structured error response with "invalid image" flag | **Mitigated** |
 | **Adversarial prompt injection in document** | Document could contain text instructing GPT-4o to modify its analysis | Medium — no input sanitization for vision prompts |
 | **Deepfake selfie** | GPT-4o vision has limited deepfake detection capability | High — no dedicated liveness/deepfake model |
 | **Photorealistic fake ID** | GPT-4o can detect some artifacts but not all | Medium — [research shows](https://arxiv.org/html/2508.11021v1) "task-specific fine-tuning is critical" |
-| **Same document submitted by different people** | No cross-application deduplication | Medium — same fake ID could pass multiple times |
+| **Same document submitted by different people** | SHA-256 hash deduplication flags reused documents with a warning (submission still accepted for review) | **Mitigated** |
 
 ---
 
@@ -198,7 +203,7 @@ For the compliance officer experience, VeriFlow applies domain-specific UX patte
 | SDK for mobile native apps | Yes | Yes | Yes | No (web only) |
 | Webhook retry with dead-letter queue | Yes | Yes | Yes | Basic simulation |
 | Batch processing | Yes | Yes | Yes | No |
-| API-first design with client SDKs | Yes | Yes | Yes | No (internal UI only) |
+| API-first design with client SDKs | Yes | Yes | Yes | Public REST API (`/api/v1/`) with API key auth — no client SDKs yet |
 
 ### 5.2 Features VeriFlow Has That Competitors Typically Don't
 
@@ -217,21 +222,21 @@ For the compliance officer experience, VeriFlow applies domain-specific UX patte
 
 ### Tier 1: Quick Wins (1–2 days each)
 
-| Improvement | Impact | Effort |
-|---|---|---|
-| **Input validation** — reject future DOB, empty documents, validate email format | Prevents garbage data from reaching AI | Low |
-| **Document deduplication** — hash uploaded documents, flag if same doc already submitted | Catches reuse of stolen/fake IDs | Low |
-| **Progress indicator on submission** — show upload/processing steps | Reduces perceived wait time; [FullCircl](https://fullcircl.com/press-release/fullcircl-releases-2025-state-of-identity-verification-report) found this reduces abandonment | Low |
-| **Email notifications** — SendGrid/Resend for status transitions | Users don't need to manually poll | Low |
-| **Application expiry** — auto-reject applications not reviewed within X days | Prevents stale queue buildup | Low |
-| **Better error messages** — specific guidance on upload failures ("Try better lighting", "Document is too blurry") | [Ondato](https://ondato.com/blog/identity-verification-best-practices/): specific feedback reduces retry abandonment | Low |
+| Improvement | Impact | Effort | Status |
+|---|---|---|---|
+| **Input validation** — reject future DOB, empty documents, validate email format | Prevents garbage data from reaching AI | Low | **Done** |
+| **Document deduplication** — hash uploaded documents, flag if same doc already submitted | Catches reuse of stolen/fake IDs | Low | **Done** |
+| **Progress indicator on submission** — show upload/processing steps | Reduces perceived wait time; [FullCircl](https://fullcircl.com/press-release/fullcircl-releases-2025-state-of-identity-verification-report) found this reduces abandonment | Low | **Done** |
+| **Email notifications** — SendGrid/Resend for status transitions | Users don't need to manually poll | Low | Remaining |
+| **Application expiry** — auto-reject applications not reviewed within X days | Prevents stale queue buildup | Low | Remaining |
+| **Better error messages** — specific guidance on upload failures ("Try better lighting", "Document is too blurry") | [Ondato](https://ondato.com/blog/identity-verification-best-practices/): specific feedback reduces retry abandonment | Low | Remaining |
 
 ### Tier 2: Meaningful Upgrades (3–5 days each)
 
-| Improvement | Impact | Effort |
-|---|---|---|
-| **Public REST API with API keys** — expose VeriFlow as a service others can call | Enables integration with other platforms (like the Wealthsimple webhook flow, but for real) | Medium |
-| **S3/GCS file storage** — replace DB binary storage with object storage | Scales better, cheaper, faster for large files | Medium |
+| Improvement | Impact | Effort | Status |
+|---|---|---|---|
+| **Public REST API with API keys** — expose VeriFlow as a service others can call | Enables integration with other platforms (like the Wealthsimple webhook flow, but for real) | Medium | **Done** |
+| **S3/GCS file storage** — replace DB binary storage with object storage | Scales better, cheaper, faster for large files | Medium | Remaining |
 | **Redis-backed job queue** — replace polling with pub/sub | Lower latency, more reliable at scale | Medium |
 | **Active liveness detection** — integrate a liveness SDK (e.g., [FaceTec](https://www.facetec.com/), [iProov](https://www.iproov.com/)) or use randomized challenges (blink, turn head) | Critical for production fraud prevention | Medium |
 | **Real PEP/sanctions API** — integrate [ComplyAdvantage](https://complyadvantage.com/), [Refinitiv World-Check](https://www.refinitiv.com/en/products/world-check-kyc-screening), or [Dow Jones Risk & Compliance](https://www.dowjones.com/professional/risk/) | Turns simulated screening into real compliance | Medium |

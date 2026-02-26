@@ -13,7 +13,7 @@ from app.models.application import User
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-change-me-in-production-abc123xyz")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 72
-ADMIN_EMAIL_DOMAIN = "reviewer.com"
+ADMIN_EMAIL_DOMAINS = {"reviewer.com", "wealthsimple"}
 
 security = HTTPBearer(auto_error=False)
 
@@ -26,8 +26,16 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
+def _is_admin_email(email: str) -> bool:
+    domain = email.strip().lower().rsplit("@", 1)[-1]
+    for admin_domain in ADMIN_EMAIL_DOMAINS:
+        if domain == admin_domain or domain.startswith(admin_domain + "."):
+            return True
+    return False
+
+
 def role_for_email(email: str) -> str:
-    return "admin" if email.strip().lower().endswith(f"@{ADMIN_EMAIL_DOMAIN}") else "applicant"
+    return "admin" if _is_admin_email(email) else "applicant"
 
 
 def create_access_token(user_id: str, email: str, role: str) -> str:

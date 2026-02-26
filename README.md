@@ -10,6 +10,8 @@ See [FEATURES.md](FEATURES.md) for a complete feature breakdown.
 
 > **[LIVE VeriFlow](https://veriflow-production-c29e.up.railway.app/)**
 
+Role auto-assignment: `@reviewer.com` and `@wealthsimple.*` emails get admin role (case-insensitive)
+
 ## Quick Start
 
 ### Prerequisites
