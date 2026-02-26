@@ -8,10 +8,11 @@ See [FEATURES.md](FEATURES.md) for a complete feature breakdown.
 
 ## Live Demo
 
-> **[LIVE VeriFlow](https://veriflow-production-c29e.up.railway.app/)**
+> **[TRY VeriFlow Yourself](https://veriflow-production-c29e.up.railway.app/)**
 
 Role auto-assignment: `@reviewer.com` and `@wealthsimple.*` emails get admin role (case-insensitive)
 
+## Live Demo (BY ME)
 **[LOOM](https://www.loom.com/share/94981def47734bfb888489b24457e09c)**
 
 ## Quick Start
