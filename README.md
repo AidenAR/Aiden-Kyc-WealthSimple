@@ -12,6 +12,8 @@ See [FEATURES.md](FEATURES.md) for a complete feature breakdown.
 
 Role auto-assignment: `@reviewer.com` and `@wealthsimple.*` emails get admin role (case-insensitive)
 
+**[LOOM](https://www.loom.com/share/94981def47734bfb888489b24457e09c)**
+
 ## Quick Start
 
 ### Prerequisites
